@@ -1,0 +1,62 @@
+\import Category
+\import Category.Limit
+\import Data.Array
+\import Meta
+\import Paths.Meta
+
+\data Type (P : \Set)
+  | TParam P
+  | Prod (Type P) (Type P)
+  | Unit
+
+
+--\data Term {TP : \Set} (P : Array (Type TP) -> (Type TP) -> \Set) (ctx : Array (Type TP)) (T : Type TP) \elim T
+--  | Prod A B => Tuple (Term P ctx A) (Term P ctx B)
+--  | Unit => unit
+--  | T => Proj1 (S : Type TP) (Term P ctx (Prod T S))
+--  | T => Proj2 (S : Type TP) (Term P ctx (Prod S T))
+--  | T => Var (i : Fin ctx.len) (ctx i = T)
+--  | T => Param (P ctx T)
+
+\data Term {TP : \Set} (P : Type TP -> Type TP -> \Set) (ctx : Type TP) (T : Type TP) \elim T
+  | Prod A B => Tuple (Term P ctx A) (Term P ctx B)
+  | Unit => unit
+  | T => Proj1 {S : Type TP} (Term P ctx (Prod T S))
+  | T => Proj2 {S : Type TP} (Term P ctx (Prod S T))
+  | T => Param (P ctx T)
+  | T => Var (T = ctx)
+
+
+--\func xx : Nat => Tuple {Nat} {\lam _ _ => Nat} {nil} {Prod {} Unit Unit} unit unit
+
+\func IT {C : CartesianPrecat} {P : \Set} (f : P -> C) (T : Type P) : C \elim T
+  | TParam p => f p
+  | Prod T1 T2 => C.Bprod (IT f T1) (IT f T2)
+  | Unit => C.terminal
+
+\func IC : Nat => 0
+--\func IC {C : CartesianPrecat} {P : \Set} (f : P -> C) (types : Array (Type P)) : Product (map (IT f) types) => C.finProd (map (IT f) types)
+
+--\func I {C : CartesianPrecat} {TP : \Set} {P : Array (Type TP) -> (Type TP) -> \Set} (tf : TP -> C)
+--        (f : \Pi (ctx' : Array (Type TP)) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IC tf ctx') (IT tf T'))
+--        {ctx : Array (Type TP)} {T : Type TP} (term : Term P ctx T)
+--  : Hom (IC tf ctx) (IT tf T) \elim T, term
+--  | Prod T1 T2, Tuple term1 term2 => C.pair (I tf f term1) (I tf f term2)
+--  | Unit, unit => C.terminalMap
+--  | T, Proj1 S term => C.proj1 `o` I tf f term
+--  | T, Proj2 S term => C.proj2 `o` I tf f term
+--  | T, Var i p => rewriteI p (proj i)
+--  | T, Param p => f ctx T p
+
+\func I {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (tf : TP -> C)
+        (f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T'))
+        {ctx : Type TP} {T : Type TP} (term : Term P ctx T)
+  : Hom (IT tf ctx) (IT tf T) \elim T, term
+  | Prod T1 T2, Tuple term1 term2 => C.pair (I tf f term1) (I tf f term2)
+  | Unit, unit => C.terminalMap
+  | T, Proj1 term => C.proj1 `o` I tf f term
+  | T, Proj2 term => C.proj2 `o` I tf f term
+  | T, Param p => f ctx T p
+  | T, Var eq => rewrite eq (C.id (IT tf ctx))
+
+\func Ih {C : CartesianPrecat} {P : \Set} (f : P -> C) (D C : Type P) => Hom (IT f D) (IT f C)

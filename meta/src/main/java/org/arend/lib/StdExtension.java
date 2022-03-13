@@ -55,10 +55,26 @@ public class StdExtension implements ArendExtension {
   @Dependency(module = "Data.List", name = "List.nil") public CoreConstructor nil;
   @Dependency(module = "Data.List", name = "List.::")  public CoreConstructor cons;
   @Dependency(module = "Data.List", name = "++")       public CoreFunctionDefinition append;
+  @Dependency(module = "Data.List", name = "!!")       public CoreFunctionDefinition at;
 
   @Dependency(module = "Logic") public CoreDataDefinition Empty;
   @Dependency(module = "Logic") public CoreDataDefinition TruncP;
   @Dependency(module = "Logic") public CoreFunctionDefinition propExt;
+
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Type") public CoreDataDefinition Type;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Type.TParam") public CoreConstructor TParam;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Type.Prod") public CoreConstructor Prod;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Type.Unit") public CoreConstructor Unit;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Tuple") public CoreConstructor Tuple;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.unit") public CoreConstructor unit;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Proj1") public CoreConstructor Proj1;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Proj2") public CoreConstructor Proj2;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Var") public CoreConstructor Var;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Param") public CoreConstructor Param;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "IT") public CoreFunctionDefinition IT;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "IC") public CoreFunctionDefinition IC;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "I") public CoreFunctionDefinition I;
+  @Dependency(module = "CategoryLanguage.Cartesian", name = "Ih") public CoreFunctionDefinition Ih;
 
   public final EquationMeta equationMeta = new EquationMeta(this);
   public final ContradictionMeta contradictionMeta = new ContradictionMeta(this);
@@ -292,6 +308,9 @@ public class StdExtension implements ArendExtension {
     contributor.declare(category, new LongName("sip"),
       "Proves univalence for categories. The type of objects must extend `BaseSet` and the Hom-set must extend `SetHom` with properties only.",
       Precedence.DEFAULT, sipMeta);
+    contributor.declare(category, new LongName("my_meta"),
+            "kek",
+            Precedence.DEFAULT, new CategoryLangMeta(this));
   }
 
   @Override
