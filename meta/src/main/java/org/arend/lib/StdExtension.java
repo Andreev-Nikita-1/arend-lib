@@ -61,21 +61,6 @@ public class StdExtension implements ArendExtension {
   @Dependency(module = "Logic") public CoreDataDefinition TruncP;
   @Dependency(module = "Logic") public CoreFunctionDefinition propExt;
 
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Type") public CoreDataDefinition Type;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Type.TParam") public CoreConstructor TParam;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Type.Prod") public CoreConstructor Prod;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Type.Unit") public CoreConstructor Unit;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Tuple") public CoreConstructor Tuple;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.unit") public CoreConstructor unit;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Proj1") public CoreConstructor Proj1;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Proj2") public CoreConstructor Proj2;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Var") public CoreConstructor Var;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Param") public CoreConstructor Param;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "IT") public CoreFunctionDefinition IT;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "IC") public CoreFunctionDefinition IC;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "I") public CoreFunctionDefinition I;
-  @Dependency(module = "CategoryLanguage.Cartesian", name = "Ih") public CoreFunctionDefinition Ih;
-
   public final EquationMeta equationMeta = new EquationMeta(this);
   public final ContradictionMeta contradictionMeta = new ContradictionMeta(this);
   public final ExtMeta extMeta = new ExtMeta(this, false);
@@ -83,6 +68,7 @@ public class StdExtension implements ArendExtension {
   public final LaterMeta laterMeta = new LaterMeta();
   public final SimpCoeMeta simpCoeMeta = new SimpCoeMeta(this);
   public final SIPMeta sipMeta = new SIPMeta(this);
+  public final CategoryLangMeta categoryLangMeta = new CategoryLangMeta(this);
   public CasesMeta casesMeta;
   public MetaRef constructorMetaRef;
 
@@ -122,6 +108,7 @@ public class StdExtension implements ArendExtension {
     provider.load(this);
     provider.load(simpCoeMeta);
     provider.load(sipMeta);
+    provider.load(categoryLangMeta);
     provider.getDefinition(ModulePath.fromString("Data.List"), new LongName("ListMonoid"), CoreFunctionDefinition.class);
     provider.getDefinition(ModulePath.fromString("Arith.Nat"), new LongName("NatSemiring"), CoreFunctionDefinition.class);
     provider.getDefinition(ModulePath.fromString("Arith.Int"), new LongName("IntRing"), CoreFunctionDefinition.class);
@@ -310,7 +297,7 @@ public class StdExtension implements ArendExtension {
       Precedence.DEFAULT, sipMeta);
     contributor.declare(category, new LongName("my_meta"),
             "kek",
-            Precedence.DEFAULT, new CategoryLangMeta(this));
+            Precedence.DEFAULT, categoryLangMeta);
   }
 
   @Override

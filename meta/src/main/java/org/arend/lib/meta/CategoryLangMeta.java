@@ -3,23 +3,81 @@ package org.arend.lib.meta;
 import org.arend.ext.concrete.ConcreteClause;
 import org.arend.ext.concrete.ConcreteFactory;
 import org.arend.ext.concrete.ConcreteParameter;
+import org.arend.ext.concrete.ConcreteSourceNode;
 import org.arend.ext.concrete.expr.*;
 import org.arend.ext.concrete.pattern.ConcretePattern;
 import org.arend.ext.core.context.CoreBinding;
-import org.arend.ext.core.context.CoreParameter;
+import org.arend.ext.core.definition.CoreClassField;
+import org.arend.ext.core.definition.CoreConstructor;
+import org.arend.ext.core.definition.CoreDataDefinition;
+import org.arend.ext.core.definition.CoreFunctionDefinition;
 import org.arend.ext.core.expr.*;
+import org.arend.ext.core.ops.CMP;
+import org.arend.ext.dependency.Dependency;
 import org.arend.ext.reference.ArendRef;
 import org.arend.ext.typechecking.*;
 import org.arend.ext.util.Pair;
 import org.arend.lib.StdExtension;
+import org.arend.lib.util.Utils;
+import org.arend.lib.util.Values;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+
 public class CategoryLangMeta extends BaseMetaDefinition {
     private final StdExtension ext;
+    private ConcreteFactory fac;
+    ExpressionTypechecker typechecker;
+    ConcreteSourceNode marker;
+    BindingsManager bindingsManager;
 
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Type")
+    public CoreDataDefinition Type;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Type.TParam")
+    public CoreConstructor TParam;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Type.Prod")
+    public CoreConstructor Prod;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Type.Unit")
+    public CoreConstructor Unit;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Tuple")
+    public CoreConstructor Tuple;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.unit")
+    public CoreConstructor unit;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Proj1")
+    public CoreConstructor Proj1;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Proj2")
+    public CoreConstructor Proj2;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Var")
+    public CoreConstructor Var;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Term.Param")
+    public CoreConstructor Param;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "IT")
+    public CoreFunctionDefinition IT;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "IC")
+    public CoreFunctionDefinition IC;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "I")
+    public CoreFunctionDefinition I;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Ih")
+    public CoreFunctionDefinition Ih;
+
+    @Dependency(module = "Category", name = "Precat.Ob")
+    public CoreClassField catOb;
+    @Dependency(module = "Category", name = "Precat.Hom")
+    public CoreClassField catHom;
+    @Dependency(module = "Category.Limit", name = "CartesianPrecat.terminal")
+    public CoreClassField terminal;
+    @Dependency(module = "Category.Limit", name = "CartesianPrecat.Bprod")
+    public CoreClassField Bprod;
+    @Dependency(module = "Category.Limit", name = "Product.apex")
+    public CoreClassField apex;
+
+
+    public boolean compare(CoreExpression value, CoreExpression element) {
+        if (value == null || element == null) return value == element;
+        return typechecker != null ? Utils.safeCompare(typechecker, value, element, CMP.EQ, marker, false, true) : value.compare(element, CMP.EQ);
+    }
 
     public CategoryLangMeta(StdExtension ext) {
         this.ext = ext;
@@ -30,144 +88,136 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         return new boolean[]{true};
     }
 
-    private static class NamesHolder {
-        List<String> oldNames;
-        List<String> newNames;
-        List<String> obsNames = new ArrayList<>();
-        Map<Pair<String, String>, List<String>> morsOldNames = new HashMap<>();
-        Map<String, CoreExpression> doms = new HashMap<>();
-        Map<String, CoreExpression> cods = new HashMap<>();
-        TypesTranslator translator;
+    private class BindingsManager {
+        private final List<CoreExpression> oldBindings;
+        private Values<CoreExpression> newBindings;
+        private Values<CoreExpression> obsValues;
+        private List<Pair<Pair<CoreExpression, CoreExpression>, Values<CoreExpression>>> morsValuesList = new ArrayList<>();
 
-        public NamesHolder(TypesTranslator translator) {
-            this.translator = translator;
+        public BindingsManager(List<CoreExpression> bindings) {
+            oldBindings = bindings;
         }
 
-        public CoreExpression set(CoreExpression lam, CoreExpression type, List<ConcreteParameter> params) {
-            List<CoreParameter> oldParams = new ArrayList<>();
-            for (int i = 0; i < params.size(); i++) {
-                oldParams.add(((CorePiExpression) type).getParameters());
-                type = ((CorePiExpression) type).getCodomain();
+        public List<Pair<Pair<CoreExpression, CoreExpression>, Values<CoreExpression>>> getMorsLists() {
+            return morsValuesList;
+        }
+
+        public int getMorIndex(CoreExpression dom, CoreExpression cod, CoreExpression var) {
+            return getMorsLists().stream()
+                    .filter(x -> compare(x.proj1.proj1, dom) && compare(x.proj1.proj2, cod))
+                    .map(x -> x.proj2).collect(Collectors.toList()).get(0).getIndex(var);
+        }
+
+        public int getObIndex(CoreExpression var) {
+            return obsValues.getIndex(var);
+        }
+
+        public CoreExpression newToOld(CoreExpression expression) {
+            return oldBindings.get(newBindings.getIndex(expression));
+        }
+
+        private Pair<CoreExpression, CoreExpression> inferDomCod(CoreExpression expr) {
+            if (expr instanceof CorePiExpression) {
+                var dom = ((CorePiExpression) expr).getParameters().getTypeExpr();
+                var cod = ((CorePiExpression) expr).getCodomain();
+                return new Pair<>(dom, cod);
             }
-            oldNames = params.stream().flatMap(concreteParameter -> concreteParameter.getRefList().stream().map(ArendRef::getRefName)).collect(Collectors.toList());
-            List<CoreParameter> newVars = new ArrayList<>();
-            for (int i = 0; i < oldNames.size(); i++) {
-                newVars.add(((CoreLamExpression) lam).getParameters());
+            return null;
+        }
+
+        private Values<CoreExpression> listToValues(List<CoreExpression> l) {
+            var res = new Values<CoreExpression>(typechecker, marker);
+            l.forEach(res::addValue);
+            return res;
+        }
+
+        public CoreExpression set(CoreExpression lam) {
+            newBindings = new Values<>(typechecker, marker);
+            for (int i = 0; i < oldBindings.size(); i++) {
+                newBindings.addValue(((CoreLamExpression) lam).getParameters().getBinding().makeReference());
                 lam = ((CoreLamExpression) lam).getBody();
             }
-            newNames = newVars.stream().map(x -> x.getBinding().getName()).collect(Collectors.toList());
-
-            for (CoreParameter p : oldParams) {
-                var type1 = p.getTypeExpr();
-                List<String> oldNames1 = new ArrayList<>();
-                oldNames1.add(p.getBinding().getName());
-                while (p.hasNext()) {
-                    p = p.getNext();
-                    try {
-                        oldNames1.add(p.getBinding().getName());
-                    } catch (IllegalStateException ignored) {
-                    }
-                }
-                var newNames1 = oldNames1.stream().map(x -> newNames.get(oldNames.indexOf(x))).collect(Collectors.toList());
-                if (type1 instanceof CorePiExpression) {
-                    var dom = ((CorePiExpression) type1).getParameters().getTypeExpr();
-                    var cod = ((CorePiExpression) type1).getCodomain();
-                    doms.put(dom.toString(), dom);
-                    cods.put(cod.toString(), cod);
-                    morsOldNames.put(new Pair<>(dom.toString(), cod.toString()), newNames1);
-                }
-                if (type1 instanceof CoreUniverseExpression) {
-                    obsNames = newNames1;
-                }
-            }
+            obsValues = listToValues(newBindings.getValues().stream()
+                    .filter(x -> (x.computeType() instanceof CoreUniverseExpression)).collect(Collectors.toList()));
+            var typesValues = new Values<CoreExpression>(typechecker, marker);
+            newBindings.getValues().forEach(b -> typesValues.addValue(b.computeType()));
+            morsValuesList = newBindings.getValues().stream()
+                    .collect(Collectors.groupingBy(x -> typesValues.getIndex(x.computeType()))).entrySet().stream()
+                    .map(x -> new Pair<>(inferDomCod(typesValues.getValue(x.getKey())), listToValues(x.getValue())))
+                    .filter(x -> x.proj1 != null).collect(Collectors.toList());
             return lam;
-        }
-
-        public CoreExpression oldRef(String name) {
-            return translator.oldRefs.get(name);
-        }
-
-        public String newToOld(String newName) {
-            return oldNames.get(newNames.indexOf(newName));
         }
     }
 
-    private static class TypeTermFactory {
-        StdExtension ext;
-        ConcreteFactory fac;
-        NamesHolder nh;
+    private class TypeTermFactory {
         ArendRef obs;
         ArendRef obsMap;
         ArendRef mors;
         ArendRef morsMap;
 
         ConcreteExpression ctx;
-        String var;
+        CoreExpression var;
 
 
-        public TypeTermFactory(StdExtension ext, ConcreteFactory fac, NamesHolder nh) {
-            this.ext = ext;
-            this.fac = fac;
-            this.nh = nh;
+        public TypeTermFactory() {
             obs = fac.local("obs");
             obsMap = fac.local("obsMap");
             mors = fac.local("mors");
             morsMap = fac.local("morsMap");
-
         }
 
         public ConcreteExpression paramT(int i) {
-            return fac.app(fac.ref(ext.TParam.getRef()),
+            return fac.app(fac.ref(TParam.getRef()),
                     fac.arg(fac.ref(obs), false), fac.arg(fac.number(i), true));
         }
 
         public ConcreteExpression prodT(ConcreteExpression a, ConcreteExpression b) {
-            return fac.app(fac.ref(ext.Prod.getRef()),
+            return fac.app(fac.ref(Prod.getRef()),
                     fac.arg(fac.ref(obs), false), fac.arg(a, true), fac.arg(b, true));
         }
 
         public ConcreteExpression unitT() {
-            return fac.app(fac.ref(ext.Unit.getRef()),
+            return fac.app(fac.ref(Unit.getRef()),
                     fac.arg(fac.ref(obs), false));
         }
 
         public ConcreteExpression tuple(ConcreteExpression a, ConcreteExpression b) {
-            return fac.app(fac.ref(ext.Tuple.getRef()),
+            return fac.app(fac.ref(Tuple.getRef()),
                     fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false),
                     fac.arg(a, true), fac.arg(b, true));
         }
 
         public ConcreteExpression unit() {
-            return fac.app(fac.ref(ext.unit.getRef()),
+            return fac.app(fac.ref(unit.getRef()),
                     fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false));
         }
 
         public ConcreteExpression proj1(ConcreteExpression t) {
-            return fac.app(fac.ref(ext.Proj1.getRef()),
+            return fac.app(fac.ref(Proj1.getRef()),
                     fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false),
                     fac.arg(t, true));
         }
 
         public ConcreteExpression proj2(ConcreteExpression t) {
-            return fac.app(fac.ref(ext.Proj2.getRef()),
+            return fac.app(fac.ref(Proj2.getRef()),
                     fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false),
                     fac.arg(t, true));
         }
 
-        public ConcreteExpression param(ConcreteExpression T, int i) {
-            return fac.app(fac.ref(ext.Param.getRef()),
+        public ConcreteExpression param(ConcreteExpression t, ConcreteExpression T, int i) {
+            return fac.app(fac.ref(Param.getRef()),
                     fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false),
-                    fac.arg(T, false), fac.arg(fac.number(i), true));
+                    fac.arg(T, false), fac.arg(fac.number(i), true), fac.arg(t, true));
         }
 
         public ConcreteExpression var() {
-            return fac.app(fac.ref(ext.Var.getRef()),
+            return fac.app(fac.ref(Var.getRef()),
                     fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false),
                     fac.arg(ctx, false), fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true));
         }
 
         public ConcreteExpression applyI(ConcreteExpression term) {
-            return fac.app(fac.ref(ext.I.getRef()), fac.arg(fac.ref(obsMap), true),
+            return fac.app(fac.ref(I.getRef()), fac.arg(fac.ref(obsMap), true),
                     fac.arg(fac.ref(morsMap), true), fac.arg(term, true));
         }
 
@@ -183,20 +233,22 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
         private ConcreteExpression morsLam(boolean onlySet) {
             List<ConcreteClause> clauses = new ArrayList<>();
-            for (var p : nh.morsOldNames.keySet()) {
-                var domExpr = nh.doms.get(p.proj1);
-                var codExpr = nh.cods.get(p.proj2);
+            var all = bindingsManager.getMorsLists();
+            for (var p : all) {
+                var domExpr = p.proj1.proj1;
+                var codExpr = p.proj1.proj2;
+                var params = p.proj2;
                 var domPat = constructPattern(domExpr);
                 var codPat = constructPattern(codExpr);
                 ConcreteClause clause;
                 if (onlySet) {
                     clause = fac.clause(List.of(domPat, codPat),
                             fac.app(fac.ref(ext.prelude.getFin().getRef()),
-                                    fac.arg(fac.number(nh.morsOldNames.get(p).size()), true)));
+                                    fac.arg(fac.number(params.getValues().size()), true)));
                 } else {
                     var nLocal = fac.local("n");
-                    var morsArgs = nh.morsOldNames.get(p).stream().map(nh::newToOld)
-                            .map(nm -> fac.core(nh.oldRef(nm).computeTyped())).collect(Collectors.toList());
+                    var morsArgs = params.getValues().stream().map(bindingsManager::newToOld)
+                            .map(x -> fac.core(x.computeTyped())).collect(Collectors.toList());
                     clause = fac.clause(List.of(domPat, codPat, fac.refPattern(nLocal, null)),
                             fac.app(listMap(morsArgs), fac.arg(fac.ref(nLocal), true)));
                 }
@@ -224,15 +276,15 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
         public ConcreteExpression addParameterMaps(ConcreteExpression expression) {
             var obsTerm = fac.app(fac.ref(ext.prelude.getFin().getRef()),
-                    fac.arg(fac.number(nh.obsNames.size()), true));
-            var obsArgs = nh.obsNames.stream().map(nh::newToOld)
-                    .map(nm -> fac.core(nh.oldRef(nm).computeTyped())).collect(Collectors.toList());
+                    fac.arg(fac.number(bindingsManager.obsValues.getValues().size()), true));
+            var obsArgs = bindingsManager.obsValues.getValues().stream().map(bindingsManager::newToOld)
+                    .map(x -> fac.core(x.computeTyped())).collect(Collectors.toList());
             var obsMapTerm = listMap(obsArgs);
 
             var morsTerm = morsLam(true);
             var morsMapTerm = morsLam(false);
 
-            var typeObs = fac.app(fac.ref(ext.Type.getRef()), fac.arg(fac.ref(obs), true));
+            var typeObs = fac.app(fac.ref(Type.getRef()), fac.arg(fac.ref(obs), true));
 
             var domLocal = fac.local("dom");
             var codLocal = fac.local("cod");
@@ -244,7 +296,7 @@ public class CategoryLangMeta extends BaseMetaDefinition {
             var nLocal = fac.local("n");
             var nType = fac.app(fac.app(fac.ref(mors), fac.arg(fac.ref(domLocal), true)),
                     fac.arg(fac.ref(codLocal), true));
-            var morsMapEndType = fac.app(fac.app(fac.app(fac.ref(ext.Ih.getRef()),
+            var morsMapEndType = fac.app(fac.app(fac.app(fac.ref(Ih.getRef()),
                                     fac.arg(fac.ref(obsMap), true)),
                             fac.arg(fac.ref(domLocal), true)),
                     fac.arg(fac.ref(codLocal), true));
@@ -265,7 +317,7 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                 try {
                     link.getBinding().getName();
                 } catch (IllegalStateException e) {
-                    return fac.conPattern(ext.Unit.getRef());
+                    return fac.conPattern(Unit.getRef());
                 }
                 List<CoreBinding> bindings = new ArrayList<>();
                 while (link.hasNext()) {
@@ -275,16 +327,15 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                 var res = constructPattern(bindings.get(bindings.size() - 1).getTypeExpr());
                 for (int i = bindings.size() - 2; i >= 0; i--) {
                     var cur = constructPattern(bindings.get(i).getTypeExpr());
-                    res = fac.conPattern(ext.Prod.getRef(), cur, res);
+                    res = fac.conPattern(Prod.getRef(), cur, res);
                 }
                 return res;
             }
             if (expr instanceof CoreReferenceExpression) {
-                var name = ((CoreReferenceExpression) expr).getBinding().getName();
                 var type = expr.computeType();
                 if (type instanceof CoreUniverseExpression) {
-                    int num = nh.obsNames.indexOf(name);
-                    return fac.conPattern(ext.TParam.getRef(), fac.numberPattern(num));
+                    int num = bindingsManager.getObIndex(expr);
+                    return fac.conPattern(TParam.getRef(), fac.numberPattern(num));
                 }
             }
             return null;
@@ -310,17 +361,21 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                 }
                 return res;
             }
-            if (expr instanceof CoreReferenceExpression) {
-                var name = ((CoreReferenceExpression) expr).getBinding().getName();
-                if (name.equals(var)) return var();
-                var type = expr.computeType();
+            if (expr instanceof CoreAppExpression) {
+                var fun = ((CoreAppExpression) expr).getFunction();
+                var arg = ((CoreAppExpression) expr).getArgument();
+                var type = fun.computeType();
                 if (type instanceof CorePiExpression) {
                     var dom = ((CorePiExpression) type).getParameters().getTypeExpr();
                     var cod = ((CorePiExpression) type).getCodomain();
-                    return param(construct(cod), nh.morsOldNames.get(new Pair<>(dom.toString(), cod.toString())).indexOf(name));
+                    return param(construct(arg), construct(cod), bindingsManager.getMorIndex(dom, cod, fun));
                 }
+            }
+            if (expr instanceof CoreReferenceExpression) {
+                if (compare(expr, var)) return var();
+                var type = expr.computeType();
                 if (type instanceof CoreUniverseExpression) {
-                    return paramT(nh.obsNames.indexOf(name));
+                    return paramT(bindingsManager.getObIndex(expr));
                 }
             }
             if (expr instanceof CoreTupleExpression) {
@@ -339,7 +394,7 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                 var param = ((CoreLamExpression) expr).getParameters();
                 var body = ((CoreLamExpression) expr).getBody();
                 ctx = construct(param.getTypeExpr());
-                var = param.getBinding().getName();
+                var = param.getBinding().makeReference();
                 return construct(body);
             }
             if (expr instanceof CoreProjExpression) {
@@ -364,36 +419,44 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
     }
 
-
-    private static class TypesTranslator {
-        List<String> names = new ArrayList<>();
+    private class TypesTranslator {
+        Map<Integer, String> names = new HashMap<>();
         Map<String, ConcreteExpression> myContext = new HashMap<>();
         Map<String, ArendRef> refs = new HashMap<>();
         Map<String, CoreExpression> oldRefs = new HashMap<>();
-        ConcreteFactory fac;
+        Values<UncheckedExpression> values;
 
-        public TypesTranslator(ConcreteFactory fac) {
-            this.fac = fac;
+        public TypesTranslator() {
+            values = new Values<>(typechecker, marker);
+        }
+
+        private int getIndexByName(String name) {
+            return names.entrySet().stream().filter(x -> x.getValue().equals(name))
+                    .map(Map.Entry::getKey).collect(Collectors.toList()).get(0);
         }
 
         public List<ConcreteParameter> generateParams() {
             return refs.values().stream()
                     .collect(Collectors.groupingBy(x -> myContext.get(x.getRefName()).toString(), Collectors.toList()))
                     .values().stream().map(x -> fac.param(true, x, myContext.get(x.get(0).getRefName()))).collect(Collectors.toList())
-                    .stream().sorted(Comparator.comparingInt(x -> names.indexOf(x.getRefList().get(0).getRefName())))
+                    .stream().sorted(Comparator.comparingInt(x -> getIndexByName(x.getRefList().get(0).getRefName())))
                     .collect(Collectors.toList());
         }
 
         public ConcreteExpression infer(CoreExpression expr) throws IllegalStateException {
+            if (values.getIndex(expr) != -1) {
+                String name = names.get(values.getIndex(expr));
+                return fac.ref(refs.get(name));
+            }
             if (expr instanceof CoreFieldCallExpression) {
-                String name = ((CoreFieldCallExpression) expr).getDefinition().getRef().getRefName();
-                if (name.equals("Ob")) {
+                var classField = ((CoreFieldCallExpression) expr).getDefinition();
+                if (classField == catOb) {
                     return fac.universe(null, null);
                 }
-                if (name.equals("apex")) {
+                if (classField == apex) {
                     return infer(((CoreFieldCallExpression) expr).getArgument());
                 }
-                if (name.equals("terminal")) {
+                if (classField == terminal) {
                     return fac.sigma();
                 }
             }
@@ -401,56 +464,63 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                 if (((CoreAppExpression) expr).getFunction() instanceof CoreAppExpression) {
                     var func = ((CoreAppExpression) ((CoreAppExpression) expr).getFunction()).getFunction();
                     if (func instanceof CoreFieldCallExpression) {
-                        String name = ((CoreFieldCallExpression) func).getDefinition().getRef().getRefName();
+                        var classField = ((CoreFieldCallExpression) func).getDefinition();
                         var arg1 = ((CoreAppExpression) ((CoreAppExpression) expr).getFunction()).getArgument();
                         var arg2 = ((CoreAppExpression) expr).getArgument();
-                        if (name.equals("Hom")) {
+                        if (classField == catHom) {
                             return fac.pi(List.of(fac.param(true, infer(arg1))), infer(arg2));
                         }
-                        if (name.equals("Bprod")) {
+                        if (classField == Bprod) {
                             return fac.sigma(fac.param(true, infer(arg1)), fac.param(true, infer(arg2)));
                         }
                     }
                 }
             }
-            if (expr instanceof CoreReferenceExpression) {
-                var name = ((CoreReferenceExpression) expr).getBinding().getName();
-                return fac.ref(refs.get(name));
-            }
             throw new IllegalStateException();
         }
 
-        public void translateContext(@NotNull List<CoreBinding> all) {
-            for (var cb : all) {
-                var type = cb.getTypeExpr();
-                var name = cb.getName();
+        private String generateName(CoreExpression expr) {
+            return expr.toString().replace(" ", "_");
+        }
+
+        public void translateContext(@NotNull List<TypedExpression> all) {
+            for (var te : all) {
+                var expr = te.getExpression();
+                var type = te.getType();
                 try {
                     var translatedType = infer(type);
-                    names.add(name);
+                    values.addValue(expr);
+                    String name = generateName(expr);
+                    names.put(values.getIndex(expr), name);
                     myContext.put(name, translatedType);
                     refs.put(name, fac.local(name));
-                    oldRefs.put(name, cb.makeReference());
+                    oldRefs.put(name, expr);
                 } catch (IllegalStateException ignored) {
                 }
             }
         }
     }
 
-
     @Override
     public TypedExpression invokeMeta(@NotNull ExpressionTypechecker typechecker, @NotNull ContextData contextData) {
-        ConcreteFactory fac = ext.factory.withData(contextData.getMarker());
+        fac = ext.factory.withData(contextData.getMarker());
+        this.typechecker = typechecker;
+        marker = contextData.getMarker();
         List<? extends ConcreteArgument> args = contextData.getArguments();
-        var context = typechecker.getFreeBindingsList();
-        var translator = new TypesTranslator(fac);
+        var context = args.subList(0, args.size() - 1).stream()
+                .map(x -> typechecker.typecheck(x.getExpression(), null)).collect(Collectors.toList());
+        var translator = new TypesTranslator();
         translator.translateContext(context);
         var expType = translator.infer(contextData.getExpectedType());
         var params = translator.generateParams();
         var finalExpType = typechecker.typecheck(fac.pi(params, expType), null).getExpression();
-        var lam = typechecker.typecheck(args.get(0).getExpression(), finalExpType).getExpression();
-        var nh = new NamesHolder(translator);
-        lam = nh.set(lam, finalExpType, params);
-        var ttf = new TypeTermFactory(ext, fac, nh);
+        var lam = typechecker.typecheck(args.get(args.size() - 1).getExpression(), finalExpType).getExpression();
+        var bindings = params.stream()
+                .flatMap(concreteParameter -> concreteParameter.getRefList().stream()
+                        .map(x -> translator.oldRefs.get(x.getRefName()))).collect(Collectors.toList());
+        bindingsManager = new BindingsManager(bindings);
+        lam = bindingsManager.set(lam);
+        var ttf = new TypeTermFactory();
         var constructed = ttf.construct(lam);
         var result = ttf.applyI(constructed);
         var withMaps = ttf.addParameterMaps(result);

@@ -10,18 +10,6 @@
 \import Paths.Meta
 \import Category.Meta
 
-\func abba (Ct : CartesianPrecat) (A B C : Ct) (h : Hom (Bprod A B) Ct.terminal) : Hom (Bprod A B) (Bprod B A) =>
-  Category.Meta.my_meta (\lam A B C h x => (x.2, x.1))
---  Category.Meta.my_meta {?}
-
-\func abba1 (Ct : CartesianPrecat) (A B C : Ct) (h : Hom (Bprod A B) Ct.terminal) : Hom (Bprod A B) (Bprod A B) =>
-  --  Category.Meta.kek (\lam A B C h x => (x.1, x.2))
---  Category.Meta.my_meta (\lam A B C h x => x)
-  Category.Meta.my_meta {?}
-
---\func abba2 (Ct : CartesianPrecat) (A B C : Ct) (h : Hom (Bprod A B) Ct.terminal) : Hom (Bprod A B) Ct.terminal =>
---  Category.Meta.my_meta (\lam A B C h => h)
-
 \func propTest (x y : Nat) (p q : x = y) : p = q => ext
 
 \func funExtTest {A : \Type} (B : A -> \Type) (f g : \Pi (x : A) -> (B x)) (h : \Pi (x : A) -> f x = g x) : f = g =>

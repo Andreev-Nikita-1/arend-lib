@@ -1,0 +1,21 @@
+\import Category
+\import Category.Limit
+\import Category.Meta
+
+\func abbaTest (Ct : CartesianPrecat) (A B : Ct) : Hom (Bprod A B) (Bprod B A) =>
+  my_meta A B (\lam A B x => (x.2, x.1))
+
+\func assocTest (Ct : CartesianPrecat) (A B C : Ct) : Hom (Bprod A (Bprod B C)) (Bprod (Bprod A B) C) =>
+  my_meta A B C (\lam _ _ _ x => ((x.1, x.2.1), x.2.2))
+
+\func idTest (Ct : CartesianPrecat) (A : Ct) : Hom A A =>
+  my_meta A (\lam A x => x)
+
+\func terminalTest (Ct : CartesianPrecat) (A : Ct) : Hom A terminal =>
+  my_meta A (\lam A1 x => ())
+
+\func paramTest (Ct : CartesianPrecat) (A B C : Ct) (f : Hom Ct.terminal A) (g : Hom A B) (h : Hom B C) : Hom Ct.terminal C =>
+  my_meta A B C f g h (\lam _ _ _ f g h _ => h (g (f ())))
+
+\func bindingsTest (Ct : CartesianPrecat) (A B : Nat -> Ct) (h : Nat -> Hom (A 0) (B 0)) : Hom (A 0) (Bprod (B 0) (A 0)) =>
+  my_meta (A 0) (B 0) (h 0) (\lam _ _ h x => (h x, x))
