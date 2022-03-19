@@ -55,8 +55,6 @@ public class CategoryLangMeta extends BaseMetaDefinition {
     public CoreConstructor Param;
     @Dependency(module = "CategoryLanguage.Cartesian", name = "IT")
     public CoreFunctionDefinition IT;
-    @Dependency(module = "CategoryLanguage.Cartesian", name = "IC")
-    public CoreFunctionDefinition IC;
     @Dependency(module = "CategoryLanguage.Cartesian", name = "I")
     public CoreFunctionDefinition I;
     @Dependency(module = "CategoryLanguage.Cartesian", name = "Ih")
@@ -519,12 +517,17 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                 .flatMap(concreteParameter -> concreteParameter.getRefList().stream()
                         .map(x -> translator.oldRefs.get(x.getRefName()))).collect(Collectors.toList());
         bindingsManager = new BindingsManager(bindings);
-        lam = bindingsManager.set(lam);
-        var ttf = new TypeTermFactory();
-        var constructed = ttf.construct(lam);
-        var result = ttf.applyI(constructed);
-        var withMaps = ttf.addParameterMaps(result);
-        return typechecker.typecheck(withMaps, contextData.getExpectedType());
+        try {
+            lam = bindingsManager.set(lam);
+            var ttf = new TypeTermFactory();
+            var constructed = ttf.construct(lam);
+            var result = ttf.applyI(constructed);
+            var withMaps = ttf.addParameterMaps(result);
+            return typechecker.typecheck(withMaps, contextData.getExpectedType());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }
 
