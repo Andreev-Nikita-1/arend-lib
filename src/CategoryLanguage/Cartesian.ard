@@ -1,5 +1,7 @@
 \import Category
 \import Category.Limit
+\import Meta
+\import Paths
 \import Paths.Meta
 
 \data Type (P : \Set)
@@ -7,13 +9,13 @@
   | Prod (Type P) (Type P)
   | Unit
 
-\data Term {TP : \Set} (P : Type TP -> Type TP -> \Set) (ctx : Type TP) (T : Type TP) \elim T
-  | Prod A B => Tuple (Term P ctx A) (Term P ctx B)
-  | Unit => unit
-  | T => Proj1 {S : Type TP} (Term P ctx (Prod T S))
-  | T => Proj2 {S : Type TP} (Term P ctx (Prod S T))
-  | T => Param {d : Type TP} (P d T) (Term P ctx d)
-  | T => Var (T = ctx)
+\data Term {TP : \Set} (P : Type TP -> Type TP -> \Set) (ctx : Type TP) (T : Type TP)
+  | Tuple {A B : Type TP} (T = Prod A B) (Term P ctx A) (Term P ctx B)
+  | unit (T = Unit)
+  | Proj1 {S TS : Type TP} (TS = Prod T S) (Term P ctx TS)
+  | Proj2 {S ST : Type TP} (ST = Prod S T) (Term P ctx ST)
+  | Param {d : Type TP} (P d T) (Term P ctx d)
+  | Var (T = ctx)
 
 \func IT {C : CartesianPrecat} {P : \Set} (f : P -> C) (T : Type P) : C \elim T
   | TParam p => f p
@@ -23,12 +25,245 @@
 \func I {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (tf : TP -> C)
         (f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T'))
         {ctx : Type TP} {T : Type TP} (term : Term P ctx T)
-  : Hom (IT tf ctx) (IT tf T) \elim T, term
-  | Prod T1 T2, Tuple term1 term2 => C.pair (I tf f term1) (I tf f term2)
-  | Unit, unit => C.terminalMap
-  | T, Proj1 term => C.proj1 `o` I tf f term
-  | T, Proj2 term => C.proj2 `o` I tf f term
-  | T, Param {d} p t => f d T p `o` I tf f t
-  | T, Var eq => rewrite eq (C.id (IT tf ctx))
+  : Hom (IT tf ctx) (IT tf T) \elim term
+  | Tuple p term1 term2 => rewrite p (C.pair (I tf f term1) (I tf f term2))
+  | unit p => rewrite p C.terminalMap
+  | Proj1 p term => transportInv (\lam x0 => Hom (IT tf x0) (IT tf T)) p C.proj1 `o` I tf f term
+  | Proj2 p term => transportInv (\lam x0 => Hom (IT tf x0) (IT tf T)) p C.proj2 `o` I tf f term
+  | Param {d} p term => f d T p `o` I tf f term
+  | Var p => rewrite p (C.id (IT tf ctx))
 
 \func Ih {C : CartesianPrecat} {P : \Set} (f : P -> C) (D C : Type P) => Hom (IT f D) (IT f C)
+
+\data Mor {OP : \Set} (P : Type OP -> Type OP -> \Set) (dom cod : Type OP) =>
+  | Id (cod = dom)
+  | MParam (P dom cod)
+  | Comp {mid : Type OP} (Mor P mid cod) (Mor P dom mid)
+  | TerminalMap (cod = Unit)
+  | TupleMap {A B : Type OP} (cod = Prod A B) (Mor P dom A) (Mor P dom B)
+  | Proj1Map {B : Type OP} (dom = Prod cod B)
+  | Proj2Map {A : Type OP} (dom = Prod A cod)
+
+\func IM {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (tf : TP -> C)
+         (f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T'))
+         {dom cod : Type TP} (mor : Mor P dom cod)
+  : Hom (IT tf dom) (IT tf cod) \elim mor
+  | Id p => rewrite p (C.id (IT tf dom))
+  | MParam p => f dom cod p
+  | Comp mor1 mor2 => IM tf f mor1 ∘ IM tf f mor2
+  | TerminalMap p => rewrite p C.terminalMap
+  | TupleMap p mor1 mor2 => rewrite p (C.pair (IM tf f mor1) (IM tf f mor2))
+  | Proj1Map p => rewrite p C.proj1
+  | Proj2Map p => rewrite p C.proj2
+
+\func app {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom mid cod : Type OP} (m1 : Term P mid cod) (m2 : Term P dom mid)
+  : Term P dom cod \elim m1
+  | Tuple p m1 m1' => Tuple p (app m1 m2) (app m1' m2)
+  | unit p => unit p
+  | Proj1 p m1 => Proj1 p (app m1 m2)
+  | Proj2 p m1 => Proj2 p (app m1 m2)
+  | Param p m1 => Param p (app m1 m2)
+  | Var p => rewrite p m2
+
+\func normalize {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (m : Mor P dom cod)
+  : Term {OP} P dom cod \elim m
+  | Id p => Var p
+  | MParam p => Param p (Var idp)
+  | Comp m1 m2 => app (normalize m1) (normalize m2)
+  | TerminalMap p => unit p
+  | TupleMap p m1 m2 => Tuple p (normalize m1) (normalize m2)
+  | Proj1Map p => Proj1 p (Var idp)
+  | Proj2Map p => Proj2 p (Var idp)
+
+\func lemma-terminal {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                     {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                     {dom mid cod : Type TP} {t : Term P dom mid} {p : cod = Unit}
+  : transportInv (\lam x0 => Hom (IT tf mid) (IT tf x0)) p CartesianPrecat.terminalMap ∘ I tf f t
+  = transportInv (\lam x0 => Hom (IT tf dom) (IT tf x0)) p CartesianPrecat.terminalMap \elim p
+  | idp => C.terminal-unique
+
+\func lemma-id {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+               {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+               {dom mid cod : Type TP} {t : Term P dom mid} {p : cod = mid}
+  : transportInv (\lam x0 => Hom (IT tf mid) (IT tf x0)) p (id (IT tf mid)) ∘ I tf f t
+  = I tf f (transportInv (Term P dom) p t) \elim p
+  | idp => C.id-left
+
+\func lemma-pair {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                 {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                 {dom mid cod A B : Type TP} {t1 : Term P mid A} {t3 : Term P mid B} {t2 : Term P dom mid}
+                 {p : cod = Prod A B} :
+  transportInv (\lam x0 => Hom (IT tf mid) (IT tf x0)) p (CartesianPrecat.pair (I tf f t1) (I tf f t3)) ∘ I tf f t2
+    = transportInv (\lam x0 => Hom (IT tf dom) (IT tf x0)) p (CartesianPrecat.pair (I tf f t1 `o` I tf f t2) (I tf f t3 `o` I tf f t2)) \elim p
+  | idp => C.pair-comp
+
+\func lemma-app {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                {dom mid cod : Type TP} (t1 : Term P mid cod) (t2 : Term P dom mid)
+  : I tf f t1 `o` I tf f t2 = I tf f (app t1 t2) \elim t1
+  | Tuple p t1 t3 => rewriteI (lemma-app t1 t2, lemma-app t3 t2) lemma-pair
+  | unit p => lemma-terminal
+  | Var p => lemma-id
+  | Proj1 p t1 => o-assoc *> rewrite (lemma-app t1 t2) idp
+  | Proj2 p t1 => o-assoc *> rewrite (lemma-app t1 t2) idp
+  | Param p t1 => o-assoc *> rewrite (lemma-app t1 t2) idp
+
+\func lemma-normalize {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                      {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                      {dom cod : Type TP} (m : Mor P dom cod) : IM tf f m = I tf f (normalize m) \elim m
+  | Id p => idp
+  | MParam p => inv C.id-right
+  | Comp m1 m2 => rewrite (lemma-normalize m1, lemma-normalize m2) (lemma-app (normalize m1) (normalize m2))
+  | TerminalMap p => idp
+  | TupleMap p m1 m2 => rewrite (lemma-normalize m1, lemma-normalize m2) idp
+  | Proj1Map p => inv C.id-right
+  | Proj2Map p => inv C.id-right
+
+\func eta-long {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (t : Term P dom cod) : Term P dom cod \elim cod, t
+  | TParam p, Tuple p1 t1 t2 => \case p1
+  | TParam p, unit p1 => \case p1
+  | TParam p, Proj1 p1 t => Proj1 p1 (eta-long t)
+  | TParam p, Proj2 p1 t => Proj2 p1 (eta-long t)
+  | TParam p, Param p1 t => Param p1 (eta-long t)
+  | TParam p, Var p1 => Var p1
+  | Unit, t => unit idp
+  | Prod cod1 cod2, Tuple p t1 t2 => Tuple p (eta-long t1) (eta-long t2)
+  | Prod cod1 cod2, unit p => \case p
+  | Prod cod1 cod2, Proj1 p t => Tuple idp (Proj1 idp (Proj1 p (eta-long t))) (Proj2 idp (Proj1 p (eta-long t)))
+  | Prod cod1 cod2, Proj2 p t => Tuple idp (Proj1 idp (Proj2 p (eta-long t))) (Proj2 idp (Proj2 p (eta-long t)))
+  | Prod cod cod1, Param p t => Tuple idp (Proj1 idp (Param p (eta-long t))) (Proj2 idp (Param p (eta-long t)))
+  | Prod cod cod1, Var p => Tuple idp (Proj1 idp (Var p)) (Proj2 idp (Var p))
+
+\func lemma-eta {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                 {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                 {dom cod : Type TP} (t : Term P dom cod) : I tf f t = I tf f (eta-long t) \elim cod, t
+  | TParam p, Tuple p1 t1 t2 => \case p1
+  | TParam p, unit p1 => \case p1
+  | TParam p, Proj1 p1 t => rewrite (lemma-eta t) idp
+  | TParam p, Proj2 p1 t => rewrite (lemma-eta t) idp
+  | TParam p, Param p1 t => rewrite (lemma-eta t) idp
+  | TParam p, Var p1 => idp
+  | Unit, t => C.terminal-unique
+  | Prod cod1 cod2, Tuple p t1 t2 => rewrite (lemma-eta t1, lemma-eta t2) idp
+  | Prod cod1 cod2, unit p => \case p
+  | Prod cod1 cod2, Proj1 p t => rewrite (lemma-eta t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
+  | Prod cod1 cod2, Proj2 p t => rewrite (lemma-eta t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
+  | Prod cod cod1, Param p t => rewrite (lemma-eta t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
+  | Prod cod cod1, Var p => rewrite (inv C.pair-comp, C.pair-proj) (inv C.id-left)
+
+\func proj1-type {OP : \Set} {A B AB : Type OP} (p : AB = Prod A B) : Type OP \elim AB
+  | TParam p1 => \case p
+  | Prod AB1 AB2 => AB1
+  | Unit => \case p
+
+\func proj1-eq {OP : \Set} {A B AB : Type OP} (p : AB = Prod A B) : A = proj1-type p \elim p
+  | idp => idp
+
+\func proj2-type {OP : \Set} {A B AB : Type OP} (p : AB = Prod A B) : Type OP \elim AB
+  | TParam p1 => \case p
+  | Prod AB1 AB2 => AB2
+  | Unit => \case p
+
+\func proj2-eq {OP : \Set} {A B AB : Type OP} (p : AB = Prod A B) : B = proj2-type p \elim p
+  | idp => idp
+
+
+
+\func normalize-beta {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (t : Term P dom cod) : Term P dom cod \elim t
+  | Tuple p t1 t2 => Tuple p (normalize-beta t1) (normalize-beta t2)
+  | Param p t => Param p (normalize-beta t)
+  | Proj1 p t => \case (normalize-beta t) \with {
+    | Tuple p1 t'1 t'2 => rewriteI (proj1-eq (inv p *> p1)) t'1
+    | t' => Proj1 p t'
+  }
+  | Proj2 p t => \case (normalize-beta t) \with {
+    | Tuple p1 t'1 t'2 => rewriteI (proj2-eq (inv p *> p1)) t'2
+    | t' => Proj2 p t'
+  }
+  | unit p => unit p
+  | Var p => Var p
+
+\func eq-pair {TP : \Set} {A B A' B' : Type TP} (pA : A = A') (pB : B = B') : Prod A B = Prod A' B' =>
+  rewrite (pA, pB) idp
+
+\func eq-pair-lemma {TP : \Set} {A B A' B' : Type TP} (p : Prod A B = Prod A' B')
+  : p = eq-pair (proj1-eq (inv p)) (proj2-eq (inv p)) => Path.inProp _ _
+
+\func lemma-pair-transport-1 {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                             {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                             {dom A A' B B' : Type TP} (pA : A = A') (pB : B = B') (t1 : Term P dom A) (t2 : Term P dom B)
+  : transportInv (\lam x => Hom (IT tf x) (IT tf A')) (eq-pair pA pB) C.proj1 `o`C.pair (I tf f t1) (I tf f t2)
+  = transport (\lam x => Hom (IT tf dom) (IT tf x)) pA (I tf f t1) \elim pA, pB
+  | idp, idp => C.beta1 _ _
+
+\func lemma-pair-transport-2 {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                             {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                             {dom A A' B B' : Type TP} (pA : A = A') (pB : B = B') (t1 : Term P dom A) (t2 : Term P dom B)
+  : transportInv (\lam x => Hom (IT tf x) (IT tf B')) (eq-pair pA pB) C.proj2 `o`C.pair (I tf f t1) (I tf f t2)
+  = transport (\lam x => Hom (IT tf dom) (IT tf x)) pB (I tf f t2) \elim pA, pB
+  | idp, idp => C.beta2 _ _
+
+\func lemma-proj-1 {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                   {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                   {dom cod S TS A B : Type TP} {p : TS = Prod cod S} {p1 : TS = Prod A B}
+                   {t1 : Term P dom A} {t2 : Term P dom B}
+  : transportInv (\lam x0 => Hom (IT tf x0) (IT tf cod)) p CartesianPrecat.proj1 ∘
+transportInv (\lam x0 => Hom (IT tf dom) (IT tf x0)) p1 (CartesianPrecat.pair (I tf f t1) (I tf f t2))
+  = transport (\lam x => Hom (IT tf dom) (IT tf x)) (proj1-eq (inv p *> p1)) (I tf f t1) \elim p1
+  | idp =>
+    \let pA => proj1-eq (inv p) | pB => proj2-eq (inv p) | s => eq-pair-lemma p
+         | s1 => lemma-pair-transport-1 {C} {TP} {P} {tf} {f} pA pB t1 t2
+         \in transport (\lam x => transportInv (\lam x0 => Hom (IT tf x0) (IT tf cod)) x C.proj1 ∘ C.pair (I tf f t1) (I tf f t2)
+           = transport (\lam x0 => Hom (IT tf dom) (IT tf x0)) (proj1-eq (inv p)) (I tf f t1)) (inv s) s1
+
+\func lemma-proj-2 {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                   {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                   {dom cod S TS A B : Type TP} {p : TS = Prod S cod} {p1 : TS = Prod A B}
+                   {t1 : Term P dom A} {t2 : Term P dom B}
+  : transportInv (\lam x0 => Hom (IT tf x0) (IT tf cod)) p CartesianPrecat.proj2 ∘
+transportInv (\lam x0 => Hom (IT tf dom) (IT tf x0)) p1 (CartesianPrecat.pair (I tf f t1) (I tf f t2))
+  = transport (\lam x => Hom (IT tf dom) (IT tf x)) (proj2-eq (inv p *> p1)) (I tf f t2) \elim p1
+  | idp =>
+    \let pA => proj1-eq (inv p) | pB => proj2-eq (inv p) | s => eq-pair-lemma p
+         | s1 => lemma-pair-transport-2 {C} {TP} {P} {tf} {f} pA pB t1 t2
+         | s2 => transport (\lam x => transportInv (\lam x0 => Hom (IT tf x0) (IT tf cod)) x C.proj2 ∘ C.pair (I tf f t1) (I tf f t2)
+           = transport (\lam x0 => Hom (IT tf dom) (IT tf x0)) (proj2-eq (inv p)) (I tf f t2)) (inv s) s1 \in s2
+
+\func lemma1  {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+              {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+              {dom cod cod' : Type TP} {p : cod = cod'} {t : Term P dom cod}
+  : I tf f (transport (\lam x => Term P dom x) p t) = transport (\lam x => Hom (IT tf dom) (IT tf x)) p (I tf f t) \elim p
+  | idp => idp
+
+\func lemma-beta {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                 {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                 {dom cod : Type TP} (t : Term P dom cod) : I tf f t = I tf f (normalize-beta t) \elim t
+  | Tuple p t1 t2 => rewrite (lemma-beta t1, lemma-beta t2) idp
+  | unit p => idp
+  | Proj1 p t => cases (normalize-beta t arg addPath) \with {
+    | Tuple p1 t1 t2, q => rewrite (lemma-beta t, q, lemma1) lemma-proj-1
+    | Proj1 p1 x, q => rewrite (lemma-beta t, q) idp
+    | Proj2 p1 x, q => rewrite (lemma-beta t, q) idp
+    | Param p1 x, q => rewrite (lemma-beta t, q) idp
+    | Var p1, q => rewrite (lemma-beta t, q) idp
+    | unit p1, q => rewrite (lemma-beta t, q) idp
+  }
+  | Proj2 p t => cases (normalize-beta t arg addPath) \with {
+    | Tuple p1 t1 t2, q => rewrite (lemma-beta t, q, lemma1) lemma-proj-2
+    | Proj1 p1 x, q => rewrite (lemma-beta t, q) idp
+    | Proj2 p1 x, q => rewrite (lemma-beta t, q) idp
+    | Param p1 x, q => rewrite (lemma-beta t, q) idp
+    | Var p1, q => rewrite (lemma-beta t, q) idp
+    | unit p1, q => rewrite (lemma-beta t, q) idp
+  }
+  | Param p t => rewrite (lemma-beta t) idp
+  | Var p => idp
+
+\func normalize-full {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (m : Mor P dom cod)
+  : Term {OP} P dom cod => normalize-beta (eta-long (normalize m))
+
+\func lemma-normalize-full {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                           {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                           {dom cod : Type TP} (m : Mor P dom cod)
+  : IM tf f m = I tf f (normalize-beta (eta-long (normalize m)))
+  => rewrite (lemma-normalize m, lemma-eta (normalize m), lemma-beta (eta-long (normalize m))) idp

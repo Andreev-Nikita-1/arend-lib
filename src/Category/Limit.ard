@@ -441,6 +441,8 @@
       | 1 => p2
     })
 
+  \lemma terminal-unique {x : Ob} {h : Hom x terminal} : h = terminalMap => tupleEq (\case __)
+
   \lemma pair-comp {x y z w : Ob} {f : Hom x y} {g : Hom y z} {h : Hom y w} : pair g h ∘ f = pair (g ∘ f) (h ∘ f)
     => pair-unique (rewriteEq (beta1 g h) $ inv (beta1 _ _)) (rewriteEq (beta2 g h) $ inv (beta2 _ _))
 
