@@ -2,20 +2,41 @@
 \import Category.Limit
 \import Category.Meta
 
-\func abbaTest (Ct : CartesianPrecat) (A B : Ct) : Hom (Bprod A B) (Bprod B A) =>
-  my_meta A B (\lam A B x => (x.2, x.1))
+\func abbaTest {Ct : CartesianPrecat} (A B : Ct) : Hom (Bprod A B) (Bprod B A) =>
+  my_meta (\lam A B x => (x.2, x.1)) A B
 
 \func assocTest (Ct : CartesianPrecat) (A B C : Ct) : Hom (Bprod A (Bprod B C)) (Bprod (Bprod A B) C) =>
-  my_meta A B C (\lam _ _ _ x => ((x.1, x.2.1), x.2.2))
+  my_meta (\lam _ _ _ x => ((x.1, x.2.1), x.2.2)) A B C
 
 \func idTest (Ct : CartesianPrecat) (A : Ct) : Hom A A =>
-  my_meta A (\lam A x => x)
+  my_meta (\lam A x => x) A
 
 \func terminalTest (Ct : CartesianPrecat) (A : Ct) : Hom A terminal =>
-  my_meta A (\lam A1 x => ())
+  my_meta (\lam A1 x => ()) A
 
 \func paramTest (Ct : CartesianPrecat) (A B C : Ct) (f : Hom Ct.terminal A) (g : Hom A B) (h : Hom B C) : Hom Ct.terminal C =>
-  my_meta A B C f g h (\lam _ _ _ f g h _ => h (g (f ())))
+  my_meta (\lam _ _ _ f g h _ => h (g (f ()))) A B C f g h
 
 \func bindingsTest (Ct : CartesianPrecat) (A B : Nat -> Ct) (h : Nat -> Hom (A 0) (B 0)) : Hom (A 0) (Bprod (B 0) (A 0)) =>
-  my_meta (A 0) (B 0) (h 0) (\lam _ _ h x => (h x, x))
+  my_meta (\lam _ _ h x => (h x, x)) (A 0) (B 0) (h 0)
+
+\func abbaEqTest {C : CartesianPrecat} (A B : C) : abbaTest A B `o` abbaTest B A = id _ =>
+  my_meta idp
+
+\func abbaEqTest' {C : CartesianPrecat} (A B : C) : C.proj2 `o` abbaTest A B = C.proj1 =>
+  my_meta idp
+
+\func idEqTest1 {C : CartesianPrecat} (A B : C) (h : Hom A B) : h `o` id _ = h =>
+  my_meta idp
+
+\func idEqTest2 {C : CartesianPrecat} (A B : C) (h : Hom A B) : id _ `o` h = h =>
+  my_meta idp
+
+\func terminalEqTest {C : CartesianPrecat} (A B : C) (h : Hom A B) : C.terminalMap `o` h = C.terminalMap =>
+  my_meta idp
+
+\func assocEqTest {Ct : CartesianPrecat} (A B C D : Ct) (f : Hom A B) (g : Hom B C) (h : Hom C D)
+  : (h `o` g) `o` f  = h `o` (g `o` f) => my_meta idp
+
+\func bindingsEqTest (Ct : CartesianPrecat) (A B : Nat -> Ct) (h : Nat -> Hom (A 0) (B 0))
+  : h 0 `o` id _ = h 0 => my_meta idp

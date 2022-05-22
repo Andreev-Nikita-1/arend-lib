@@ -134,36 +134,6 @@
   | Prod cod cod1, Param p t => Tuple idp (Proj1 idp (Param p (eta-long t))) (Proj2 idp (Param p (eta-long t)))
   | Prod cod cod1, Var p => Tuple idp (Proj1 idp (Var p)) (Proj2 idp (Var p))
 
-\func eta-long-skip {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (t : Term P dom cod) : Term P dom cod \elim cod, t
-  | TParam p, Tuple p1 t1 t2 => \case p1
-  | TParam p, unit p1 => \case p1
-  | TParam p, Proj1 p1 t => Proj1 p1 (eta-long' t)
-  | TParam p, Proj2 p1 t => Proj2 p1 (eta-long' t)
-  | TParam p, Param p1 t => Param p1 (eta-long' t)
-  | TParam p, Var p1 => Var p1
-  | Unit, t => unit idp
-  | Prod cod1 cod2, Tuple p t1 t2 => Tuple p (eta-long' t1) (eta-long' t2)
-  | Prod cod1 cod2, unit p => \case p
-  | Prod cod1 cod2, Proj1 p t => Proj1 p (eta-long-skip t)
-  | Prod cod1 cod2, Proj2 p t => Proj2 p (eta-long-skip t)
-  | Prod cod cod1, Param p t => Param p (eta-long' t)
-  | Prod cod cod1, Var p => Var p
-
-\func eta-long' {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (t : Term P dom cod) : Term P dom cod \elim cod, t
-  | TParam p, Tuple p1 t1 t2 => \case p1
-  | TParam p, unit p1 => \case p1
-  | TParam p, Proj1 p1 t => Proj1 p1 (eta-long-skip t)
-  | TParam p, Proj2 p1 t => Proj2 p1 (eta-long-skip t)
-  | TParam p, Param p1 t => Param p1 (eta-long-skip t)
-  | TParam p, Var p1 => Var p1
-  | Unit, t => unit idp
-  | Prod cod1 cod2, Tuple p t1 t2 => Tuple p (eta-long' t1) (eta-long' t2)
-  | Prod cod1 cod2, unit p => \case p
-  | Prod cod1 cod2, Proj1 p t => Tuple idp (Proj1 idp (Proj1 p (eta-long' t))) (Proj2 idp (Proj1 p (eta-long' t)))
-  | Prod cod1 cod2, Proj2 p t => Tuple idp (Proj1 idp (Proj2 p (eta-long' t))) (Proj2 idp (Proj2 p (eta-long' t)))
-  | Prod cod cod1, Param p t => Tuple idp (Proj1 idp (Param p (eta-long' t))) (Proj2 idp (Param p (eta-long' t)))
-  | Prod cod cod1, Var p => Tuple idp (Proj1 idp (Var p)) (Proj2 idp (Var p))
-
 \func lemma-eta {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
                 {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
                 {dom cod : Type TP} (t : Term P dom cod) : I tf f t = I tf f (eta-long t) \elim cod, t
@@ -179,40 +149,6 @@
   | Prod cod1 cod2, Proj1 p t => rewrite (lemma-eta t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
   | Prod cod1 cod2, Proj2 p t => rewrite (lemma-eta t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
   | Prod cod cod1, Param p t => rewrite (lemma-eta t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
-  | Prod cod cod1, Var p => rewrite (inv C.pair-comp, C.pair-proj) (inv C.id-left)
-
-\func lemma-eta-skip {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
-                     {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
-                     {dom cod : Type TP} (t : Term P dom cod) : I tf f t = I tf f (eta-long-skip t) \elim cod, t
-  | TParam p, Tuple p1 t1 t2 => \case p1
-  | TParam p, unit p1 => \case p1
-  | TParam p, Proj1 p1 t => rewrite (lemma-eta' t) idp
-  | TParam p, Proj2 p1 t => rewrite (lemma-eta' t) idp
-  | TParam p, Param p1 t => rewrite (lemma-eta' t) idp
-  | TParam p, Var p1 => idp
-  | Unit, t => C.terminal-unique
-  | Prod cod1 cod2, Tuple p t1 t2 => rewrite (lemma-eta' t1, lemma-eta' t2) idp
-  | Prod cod1 cod2, unit p => \case p
-  | Prod cod1 cod2, Proj1 p t => rewrite (lemma-eta-skip t) idp
-  | Prod cod1 cod2, Proj2 p t => rewrite (lemma-eta-skip t) idp
-  | Prod cod cod1, Param p t => rewrite (lemma-eta' t) idp
-  | Prod cod cod1, Var p => idp
-
-\func lemma-eta' {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
-                 {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
-                 {dom cod : Type TP} (t : Term P dom cod) : I tf f t = I tf f (eta-long' t) \elim cod, t
-  | TParam p, Tuple p1 t1 t2 => \case p1
-  | TParam p, unit p1 => \case p1
-  | TParam p, Proj1 p1 t => rewrite (lemma-eta-skip t) idp
-  | TParam p, Proj2 p1 t => rewrite (lemma-eta-skip t) idp
-  | TParam p, Param p1 t => rewrite (lemma-eta-skip t) idp
-  | TParam p, Var p1 => idp
-  | Unit, t => C.terminal-unique
-  | Prod cod1 cod2, Tuple p t1 t2 => rewrite (lemma-eta' t1, lemma-eta' t2) idp
-  | Prod cod1 cod2, unit p => \case p
-  | Prod cod1 cod2, Proj1 p t => rewrite (lemma-eta' t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
-  | Prod cod1 cod2, Proj2 p t => rewrite (lemma-eta' t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
-  | Prod cod cod1, Param p t => rewrite (lemma-eta' t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
   | Prod cod cod1, Var p => rewrite (inv C.pair-comp, C.pair-proj) (inv C.id-left)
 
 \func proj1-type {OP : \Set} {A B AB : Type OP} (p : AB = Prod A B) : Type OP \elim AB
@@ -327,14 +263,10 @@ transportInv (\lam x0 => Hom (IT tf dom) (IT tf x0)) p1 (CartesianPrecat.pair (I
 \func lemma-normalize-full {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
                            {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
                            {dom cod : Type TP} (m : Mor P dom cod)
-  : IM tf f m = I tf f (normalize-beta (eta-long (normalize m))) =>
+  : IM tf f m = I tf f (normalize-full m) =>
   rewrite (lemma-normalize m, lemma-eta (normalize m), lemma-beta (eta-long (normalize m))) idp
 
-\func normalize-full' {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (m : Mor P dom cod)
-  : Term {OP} P dom cod => eta-long' (normalize-beta (normalize m))
-
-\func lemma-normalize-full' {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
-                            {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
-                            {dom cod : Type TP} (m : Mor P dom cod)
-  : IM tf f m = I tf f (normalize-full' m) =>
-  rewrite (lemma-normalize m, lemma-beta (normalize m), lemma-eta' (normalize-beta (normalize m))) idp
+\func lemma {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+            {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+            {dom cod : Type TP} (m m1 : Mor P dom cod) (p : I tf f (normalize-full m) = I tf f (normalize-full m1))
+  : IM tf f m = IM tf f m1 => lemma-normalize-full m *> p *> inv (lemma-normalize-full m1)

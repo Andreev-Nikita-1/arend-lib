@@ -6,6 +6,7 @@ import org.arend.ext.concrete.ConcreteParameter;
 import org.arend.ext.concrete.ConcreteSourceNode;
 import org.arend.ext.concrete.expr.*;
 import org.arend.ext.concrete.pattern.ConcretePattern;
+import org.arend.ext.core.body.CoreElimClause;
 import org.arend.ext.core.context.CoreBinding;
 import org.arend.ext.core.definition.CoreClassField;
 import org.arend.ext.core.definition.CoreConstructor;
@@ -13,6 +14,7 @@ import org.arend.ext.core.definition.CoreDataDefinition;
 import org.arend.ext.core.definition.CoreFunctionDefinition;
 import org.arend.ext.core.expr.*;
 import org.arend.ext.core.ops.CMP;
+import org.arend.ext.core.ops.NormalizationMode;
 import org.arend.ext.dependency.Dependency;
 import org.arend.ext.reference.ArendRef;
 import org.arend.ext.typechecking.*;
@@ -31,7 +33,7 @@ public class CategoryLangMeta extends BaseMetaDefinition {
     private ConcreteFactory fac;
     ExpressionTypechecker typechecker;
     ConcreteSourceNode marker;
-    BindingsManager bindingsManager;
+//    BindingsManager bindingsManager;
 
     @Dependency(module = "CategoryLanguage.Cartesian", name = "Type")
     public CoreDataDefinition Type;
@@ -59,17 +61,44 @@ public class CategoryLangMeta extends BaseMetaDefinition {
     public CoreFunctionDefinition I;
     @Dependency(module = "CategoryLanguage.Cartesian", name = "Ih")
     public CoreFunctionDefinition Ih;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "lemma")
+    public CoreFunctionDefinition lemma;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Mor")
+    public CoreDataDefinition Mor;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Mor.Id")
+    public CoreConstructor Id;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Mor.MParam")
+    public CoreConstructor MParam;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Mor.Comp")
+    public CoreConstructor Comp;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Mor.TerminalMap")
+    public CoreConstructor TerminalMap;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Mor.TupleMap")
+    public CoreConstructor TupleMap;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Mor.Proj1Map")
+    public CoreConstructor Proj1Map;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "Mor.Proj2Map")
+    public CoreConstructor Proj2Map;
+    @Dependency(module = "CategoryLanguage.Cartesian", name = "IM")
+    public CoreFunctionDefinition IM;
+
 
     @Dependency(module = "Category", name = "Precat.Ob")
     public CoreClassField catOb;
     @Dependency(module = "Category", name = "Precat.Hom")
     public CoreClassField catHom;
+    @Dependency(module = "Category", name = "Precat.id")
+    public CoreClassField id;
     @Dependency(module = "Category.Limit", name = "CartesianPrecat.terminal")
     public CoreClassField terminal;
     @Dependency(module = "Category.Limit", name = "CartesianPrecat.Bprod")
     public CoreClassField Bprod;
     @Dependency(module = "Category.Limit", name = "Product.apex")
     public CoreClassField apex;
+    @Dependency(module = "Category.Limit", name = "Product.tupleMap")
+    public CoreClassField tupleMap;
+    @Dependency(module = "Category.Limit", name = "Product.proj")
+    public CoreClassField proj;
 
 
     public boolean compare(CoreExpression value, CoreExpression element) {
@@ -87,21 +116,36 @@ public class CategoryLangMeta extends BaseMetaDefinition {
     }
 
     private class BindingsManager {
-        private final List<CoreExpression> oldBindings;
+
+        public Values<CoreExpression> obsValues = new Values<>(typechecker, marker);
+        protected List<Pair<Pair<CoreExpression, CoreExpression>, Values<CoreExpression>>> morsValuesList = new ArrayList<>();
+
+        private Optional<Values<CoreExpression>> getMorsValues(CoreExpression dom, CoreExpression cod) {
+            var v = morsValuesList.stream()
+                    .filter(x -> compare(x.proj1.proj1, dom) && compare(x.proj1.proj2, cod))
+                    .map(x -> x.proj2).collect(Collectors.toList());
+            if (v.size() > 0) {
+                return Optional.of(v.get(0));
+            }
+            return Optional.empty();
+        }
+
+        public int addMor(CoreExpression dom, CoreExpression cod, CoreExpression m) {
+            var o = getMorsValues(dom, cod);
+            if (o.isPresent()) {
+                return o.get().addValue(m);
+            }
+            morsValuesList.add(new Pair<>(new Pair<>(dom, cod), new Values<>(typechecker, marker)));
+            return morsValuesList.get(morsValuesList.size() - 1).proj2.addValue(m);
+        }
+
+        private Values<CoreExpression> oldBindings;
         private Values<CoreExpression> newBindings;
-        private Values<CoreExpression> obsValues;
-        private List<Pair<Pair<CoreExpression, CoreExpression>, Values<CoreExpression>>> morsValuesList = new ArrayList<>();
+        private List<Pair<Pair<CoreExpression, CoreExpression>, Values<CoreExpression>>> newMorsValuesList = new ArrayList<>();
 
-        public BindingsManager(List<CoreExpression> bindings) {
-            oldBindings = bindings;
-        }
 
-        public List<Pair<Pair<CoreExpression, CoreExpression>, Values<CoreExpression>>> getMorsLists() {
-            return morsValuesList;
-        }
-
-        public int getMorIndex(CoreExpression dom, CoreExpression cod, CoreExpression var) {
-            return getMorsLists().stream()
+        public int getMorIndexNew(CoreExpression dom, CoreExpression cod, CoreExpression var) {
+            return newMorsValuesList.stream()
                     .filter(x -> compare(x.proj1.proj1, dom) && compare(x.proj1.proj2, cod))
                     .map(x -> x.proj2).collect(Collectors.toList()).get(0).getIndex(var);
         }
@@ -111,10 +155,19 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         }
 
         public CoreExpression newToOld(CoreExpression expression) {
-            return oldBindings.get(newBindings.getIndex(expression));
+            return oldBindings.getValue(newBindings.getIndex(expression));
         }
 
         private Pair<CoreExpression, CoreExpression> inferDomCod(CoreExpression expr) {
+            if (expr instanceof CoreAppExpression) {
+                var dom = ((CoreAppExpression) ((CoreAppExpression) expr).getFunction()).getArgument();
+                var cod = ((CoreAppExpression) expr).getArgument();
+                return new Pair<>(dom, cod);
+            }
+            return null;
+        }
+
+        private Pair<CoreExpression, CoreExpression> inferDomCodNew(CoreExpression expr) {
             if (expr instanceof CorePiExpression) {
                 var dom = ((CorePiExpression) expr).getParameters().getTypeExpr();
                 var cod = ((CorePiExpression) expr).getCodomain();
@@ -129,19 +182,28 @@ public class CategoryLangMeta extends BaseMetaDefinition {
             return res;
         }
 
-        public CoreExpression set(CoreExpression lam) {
+        public CoreExpression set(List<CoreExpression> bindings, CoreExpression lam) {
+            oldBindings = listToValues(bindings);
             newBindings = new Values<>(typechecker, marker);
-            for (int i = 0; i < oldBindings.size(); i++) {
-                newBindings.addValue(((CoreLamExpression) lam).getParameters().getBinding().makeReference());
-                lam = ((CoreLamExpression) lam).getBody();
+            if (lam != null) {
+                for (int i = 0; i < oldBindings.getValues().size(); i++) {
+                    newBindings.addValue(((CoreLamExpression) lam).getParameters().getBinding().makeReference());
+                    lam = ((CoreLamExpression) lam).getBody();
+                }
             }
-            obsValues = listToValues(newBindings.getValues().stream()
-                    .filter(x -> (x.computeType() instanceof CoreUniverseExpression)).collect(Collectors.toList()));
+            obsValues = listToValues(oldBindings.getValues().stream()
+                    .filter(x -> (x.computeType() instanceof CoreFieldCallExpression)).collect(Collectors.toList()));
             var typesValues = new Values<CoreExpression>(typechecker, marker);
-            newBindings.getValues().forEach(b -> typesValues.addValue(b.computeType()));
-            morsValuesList = newBindings.getValues().stream()
+            oldBindings.getValues().forEach(b -> typesValues.addValue(b.computeType()));
+            morsValuesList = oldBindings.getValues().stream()
                     .collect(Collectors.groupingBy(x -> typesValues.getIndex(x.computeType()))).entrySet().stream()
                     .map(x -> new Pair<>(inferDomCod(typesValues.getValue(x.getKey())), listToValues(x.getValue())))
+                    .filter(x -> x.proj1 != null).collect(Collectors.toList());
+            var typesValuesNew = new Values<CoreExpression>(typechecker, marker);
+            newBindings.getValues().forEach(b -> typesValuesNew.addValue(b.computeType()));
+            newMorsValuesList = newBindings.getValues().stream()
+                    .collect(Collectors.groupingBy(x -> typesValuesNew.getIndex(x.computeType()))).entrySet().stream()
+                    .map(x -> new Pair<>(inferDomCodNew(typesValuesNew.getValue(x.getKey())), listToValues(x.getValue())))
                     .filter(x -> x.proj1 != null).collect(Collectors.toList());
             return lam;
         }
@@ -156,12 +218,25 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         ConcreteExpression ctx;
         CoreExpression var;
 
+        BindingsManager bm = new BindingsManager();
 
         public TypeTermFactory() {
             obs = fac.local("obs");
             obsMap = fac.local("obsMap");
             mors = fac.local("mors");
             morsMap = fac.local("morsMap");
+        }
+
+        public ConcreteExpression Type() {
+            return fac.app(fac.ref(Type.getRef()), fac.arg(fac.ref(obs), true));
+        }
+
+        public ConcreteExpression Mor(ConcreteExpression dom, ConcreteExpression cod) {
+            return fac.app(fac.ref(Mor.getRef()),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), true),
+                    fac.arg(dom, true),
+                    fac.arg(cod, true));
         }
 
         public ConcreteExpression paramT(int i) {
@@ -171,7 +246,9 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
         public ConcreteExpression prodT(ConcreteExpression a, ConcreteExpression b) {
             return fac.app(fac.ref(Prod.getRef()),
-                    fac.arg(fac.ref(obs), false), fac.arg(a, true), fac.arg(b, true));
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(a, true),
+                    fac.arg(b, true));
         }
 
         public ConcreteExpression unitT() {
@@ -181,37 +258,123 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
         public ConcreteExpression tuple(ConcreteExpression a, ConcreteExpression b) {
             return fac.app(fac.ref(Tuple.getRef()),
-                    fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(ctx, false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true),
                     fac.arg(a, true), fac.arg(b, true));
         }
 
-        public ConcreteExpression unit() {
+        public ConcreteExpression unit(ConcreteExpression t) {
             return fac.app(fac.ref(unit.getRef()),
-                    fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false));
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(ctx, false),
+                    fac.arg(t, false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true)
+            );
         }
 
         public ConcreteExpression proj1(ConcreteExpression t) {
             return fac.app(fac.ref(Proj1.getRef()),
-                    fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(ctx, false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true),
                     fac.arg(t, true));
         }
 
         public ConcreteExpression proj2(ConcreteExpression t) {
             return fac.app(fac.ref(Proj2.getRef()),
-                    fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(ctx, false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true),
                     fac.arg(t, true));
         }
 
         public ConcreteExpression param(ConcreteExpression t, ConcreteExpression T, int i) {
             return fac.app(fac.ref(Param.getRef()),
-                    fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false),
-                    fac.arg(T, false), fac.arg(fac.number(i), true), fac.arg(t, true));
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(ctx, false),
+                    fac.arg(T, false),
+                    fac.arg(fac.number(i), true),
+                    fac.arg(t, true));
         }
 
         public ConcreteExpression var() {
             return fac.app(fac.ref(Var.getRef()),
                     fac.arg(fac.ref(obs), false), fac.arg(fac.ref(mors), false), fac.arg(ctx, false),
                     fac.arg(ctx, false), fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true));
+        }
+
+        public ConcreteExpression id(ConcreteExpression dom) {
+            return fac.app(fac.ref(Id.getRef()),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(dom, false),
+                    fac.arg(dom, false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true));
+        }
+
+        public ConcreteExpression paramM(ConcreteExpression dom, ConcreteExpression cod, int i) {
+            return fac.app(fac.ref(MParam.getRef()),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(dom, false),
+                    fac.arg(cod, false),
+                    fac.arg(fac.number(i), true));
+        }
+
+        public ConcreteExpression comp(ConcreteExpression dom, ConcreteExpression cod, ConcreteExpression mid,
+                                       ConcreteExpression a, ConcreteExpression b) {
+            return fac.app(fac.ref(Comp.getRef()),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(dom, false),
+                    fac.arg(cod, false),
+                    fac.arg(mid, false),
+                    fac.arg(a, true),
+                    fac.arg(b, true));
+        }
+
+        public ConcreteExpression terminalMap(ConcreteExpression dom) {
+            return fac.app(fac.ref(TerminalMap.getRef()),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(dom, false),
+                    fac.arg(unitT(), false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true));
+        }
+
+        public ConcreteExpression tupleMap(
+                ConcreteExpression a, ConcreteExpression b) {
+            return fac.app(fac.ref(TupleMap.getRef()),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true),
+                    fac.arg(a, true),
+                    fac.arg(b, true)
+            );
+        }
+
+        public ConcreteExpression proj1Map(ConcreteExpression dom) {
+            return fac.app(fac.ref(Proj1Map.getRef()),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(dom, false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true)
+            );
+        }
+
+        public ConcreteExpression proj2Map(ConcreteExpression dom) {
+            return fac.app(fac.ref(Proj2Map.getRef()),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(dom, false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true)
+            );
         }
 
         public ConcreteExpression applyI(ConcreteExpression term) {
@@ -231,7 +394,7 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
         private ConcreteExpression morsLam(boolean onlySet) {
             List<ConcreteClause> clauses = new ArrayList<>();
-            var all = bindingsManager.getMorsLists();
+            var all = bm.morsValuesList;
             for (var p : all) {
                 var domExpr = p.proj1.proj1;
                 var codExpr = p.proj1.proj2;
@@ -245,7 +408,7 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                                     fac.arg(fac.number(params.getValues().size()), true)));
                 } else {
                     var nLocal = fac.local("n");
-                    var morsArgs = params.getValues().stream().map(bindingsManager::newToOld)
+                    var morsArgs = params.getValues().stream()
                             .map(x -> fac.core(x.computeTyped())).collect(Collectors.toList());
                     clause = fac.clause(List.of(domPat, codPat, fac.refPattern(nLocal, null)),
                             fac.app(listMap(morsArgs), fac.arg(fac.ref(nLocal), true)));
@@ -274,8 +437,8 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
         public ConcreteExpression addParameterMaps(ConcreteExpression expression) {
             var obsTerm = fac.app(fac.ref(ext.prelude.getFin().getRef()),
-                    fac.arg(fac.number(bindingsManager.obsValues.getValues().size()), true));
-            var obsArgs = bindingsManager.obsValues.getValues().stream().map(bindingsManager::newToOld)
+                    fac.arg(fac.number(bm.obsValues.getValues().size()), true));
+            var obsArgs = bm.obsValues.getValues().stream()
                     .map(x -> fac.core(x.computeTyped())).collect(Collectors.toList());
             var obsMapTerm = listMap(obsArgs);
 
@@ -310,30 +473,31 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         }
 
         private ConcretePattern constructPattern(CoreExpression expr) {
-            if (expr instanceof CoreSigmaExpression) {
-                var link = ((CoreSigmaExpression) expr).getParameters();
-                try {
-                    link.getBinding().getName();
-                } catch (IllegalStateException e) {
+            if (bm.obsValues.getIndex(expr) != -1) {
+                int num = bm.obsValues.getIndex(expr);
+                return fac.conPattern(TParam.getRef(), fac.numberPattern(num));
+            }
+            if (expr instanceof CoreFieldCallExpression) {
+                var classField = ((CoreFieldCallExpression) expr).getDefinition();
+                if (classField == apex) {
+                    return constructPattern(((CoreFieldCallExpression) expr).getArgument());
+                }
+                if (classField == terminal) {
                     return fac.conPattern(Unit.getRef());
                 }
-                List<CoreBinding> bindings = new ArrayList<>();
-                while (link.hasNext()) {
-                    bindings.add(link.getBinding());
-                    link = link.getNext();
-                }
-                var res = constructPattern(bindings.get(bindings.size() - 1).getTypeExpr());
-                for (int i = bindings.size() - 2; i >= 0; i--) {
-                    var cur = constructPattern(bindings.get(i).getTypeExpr());
-                    res = fac.conPattern(Prod.getRef(), cur, res);
-                }
-                return res;
             }
-            if (expr instanceof CoreReferenceExpression) {
-                var type = expr.computeType();
-                if (type instanceof CoreUniverseExpression) {
-                    int num = bindingsManager.getObIndex(expr);
-                    return fac.conPattern(TParam.getRef(), fac.numberPattern(num));
+
+            if (expr instanceof CoreAppExpression) {
+                if (((CoreAppExpression) expr).getFunction() instanceof CoreAppExpression) {
+                    var func = ((CoreAppExpression) ((CoreAppExpression) expr).getFunction()).getFunction();
+                    if (func instanceof CoreFieldCallExpression) {
+                        var classField = ((CoreFieldCallExpression) func).getDefinition();
+                        var arg1 = ((CoreAppExpression) ((CoreAppExpression) expr).getFunction()).getArgument();
+                        var arg2 = ((CoreAppExpression) expr).getArgument();
+                        if (classField == Bprod) {
+                            return fac.conPattern(Prod.getRef(), constructPattern(arg1), constructPattern(arg2));
+                        }
+                    }
                 }
             }
             return null;
@@ -366,20 +530,22 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                 if (type instanceof CorePiExpression) {
                     var dom = ((CorePiExpression) type).getParameters().getTypeExpr();
                     var cod = ((CorePiExpression) type).getCodomain();
-                    return param(construct(arg), construct(cod), bindingsManager.getMorIndex(dom, cod, fun));
+                    return param(construct(arg), construct(cod),
+                            bm.getMorIndexNew(
+                                    dom, cod, fun));
                 }
             }
             if (expr instanceof CoreReferenceExpression) {
                 if (compare(expr, var)) return var();
                 var type = expr.computeType();
                 if (type instanceof CoreUniverseExpression) {
-                    return paramT(bindingsManager.getObIndex(expr));
+                    return paramT(bm.getObIndex(bm.newToOld(expr)));
                 }
             }
             if (expr instanceof CoreTupleExpression) {
                 var fields = ((CoreTupleExpression) expr).getFields();
                 if (fields.size() == 0) {
-                    return unit();
+                    return unit(construct(expr.computeType()));
                 }
                 var res = construct(fields.get(fields.size() - 1));
                 for (int i = fields.size() - 2; i >= 0; i--) {
@@ -415,6 +581,105 @@ public class CategoryLangMeta extends BaseMetaDefinition {
             return null;
         }
 
+        public ConcreteExpression infer(CoreExpression expr) {
+            if (expr instanceof CoreFieldCallExpression) {
+                var classField = ((CoreFieldCallExpression) expr).getDefinition();
+                if (classField == catOb) {
+                    return Type();
+                }
+                if (classField == apex) {
+                    return infer(((CoreFieldCallExpression) expr).getArgument());
+                }
+                if (classField == terminal) {
+                    return unitT();
+                }
+            }
+            if (expr instanceof CoreAppExpression) {
+                var f = ((CoreAppExpression) expr).getFunction();
+                if (f instanceof CoreAppExpression) {
+                    var func = ((CoreAppExpression) ((CoreAppExpression) expr).getFunction()).getFunction();
+                    if (func instanceof CoreFieldCallExpression) {
+                        var classField = ((CoreFieldCallExpression) func).getDefinition();
+                        var arg1 = ((CoreAppExpression) ((CoreAppExpression) expr).getFunction()).getArgument();
+                        var arg2 = ((CoreAppExpression) expr).getArgument();
+                        if (classField == catHom) {
+                            return Mor(infer(arg1), infer(arg2));
+                        }
+                        if (classField == Bprod) {
+                            return prodT(infer(arg1), infer(arg2));
+                        }
+                        if (classField == tupleMap) {
+                            var arg = ((CoreFieldCallExpression) func).getArgument();
+                            if (arg instanceof CoreFieldCallExpression) {
+                                if (((CoreFieldCallExpression) arg).getDefinition() == terminal) {
+                                    return terminalMap(infer(arg1));
+                                }
+                            }
+                            var args = (((CoreCaseExpression) (((CoreLamExpression) arg2).getBody())).getElimBody().getClauses()
+                                    .stream().map(CoreElimClause::getExpression).collect(Collectors.toList()));
+                            return tupleMap(infer(args.get(0)), infer(args.get(1)));
+
+                        }
+                    }
+                    if (func instanceof CoreAppExpression) {
+                        var A = infer(((CoreAppExpression) (((CoreAppExpression) ((CoreAppExpression) func).getFunction()).getFunction())).getArgument());
+                        var B = infer(((CoreAppExpression) ((CoreAppExpression) func).getFunction()).getArgument());
+                        var C = infer(((CoreAppExpression) func).getArgument());
+                        var arg1 = infer(((CoreAppExpression) ((CoreAppExpression) expr).getFunction()).getArgument());
+                        var arg2 = infer(((CoreAppExpression) expr).getArgument());
+                        return comp(A, C, B, arg1, arg2);
+                    }
+                }
+                if (f instanceof CoreFieldCallExpression) {
+                    var classField = ((CoreFieldCallExpression) f).getDefinition();
+                    if (classField == id) {
+                        return id(infer(((CoreAppExpression) expr).getArgument()));
+                    }
+                    if (classField == proj) {
+                        var ind = ((CoreAppExpression) expr).getArgument();
+                        assert ind instanceof CoreIntegerExpression;
+                        var i = ((CoreIntegerExpression) ind).getBigInteger().intValue();
+                        var dom = ((CoreFieldCallExpression) f).getArgument();
+                        return i == 0 ? proj1Map(infer(dom)) : proj2Map(infer(dom));
+                    }
+                }
+            }
+            var type = expr.computeType();
+            if (type instanceof CoreFieldCallExpression) {
+                var classField = ((CoreFieldCallExpression) type).getDefinition();
+                if (classField == catOb) {
+                    return paramT(bm.obsValues.addValue(expr));
+                }
+            }
+            if (type instanceof CoreAppExpression) {
+                var f = ((CoreAppExpression) type).getFunction();
+                if (f instanceof CoreAppExpression) {
+                    var func = ((CoreAppExpression) ((CoreAppExpression) type).getFunction()).getFunction();
+                    if (func instanceof CoreFieldCallExpression) {
+                        var classField = ((CoreFieldCallExpression) func).getDefinition();
+                        var arg1 = ((CoreAppExpression) ((CoreAppExpression) type).getFunction()).getArgument();
+                        var arg2 = ((CoreAppExpression) type).getArgument();
+                        if (classField == catHom) {
+                            return paramM(infer(arg1), infer(arg2), bm.addMor(arg1, arg2, expr));
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        public ConcreteExpression applyLemma(ConcreteExpression m, ConcreteExpression m1, ConcreteExpression p) {
+            return fac.app(fac.ref(lemma.getRef()),
+                    fac.arg(fac.hole(), false),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(fac.ref(obsMap), false),
+                    fac.arg(fac.ref(morsMap), false),
+                    fac.arg(m, true),
+                    fac.arg(m1, true),
+                    fac.arg(p, true)
+            );
+        }
     }
 
     private class TypesTranslator {
@@ -505,21 +770,32 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         this.typechecker = typechecker;
         marker = contextData.getMarker();
         List<? extends ConcreteArgument> args = contextData.getArguments();
-        var context = args.subList(0, args.size() - 1).stream()
+        var context = args.subList(1, args.size()).stream()
                 .map(x -> typechecker.typecheck(x.getExpression(), null)).collect(Collectors.toList());
+        var ttf = new TypeTermFactory();
+        if (contextData.getExpectedType() instanceof CoreFunCallExpression &&
+                ((CoreFunCallExpression) contextData.getExpectedType()).getDefinition() == ext.prelude.getEquality()) {
+            var eq = Utils.toEquality(contextData.getExpectedType(), typechecker.getErrorReporter(), contextData.getMarker());
+            var a = eq.getDefCallArguments().get(1).normalize(NormalizationMode.NF);
+            var b = eq.getDefCallArguments().get(2).normalize(NormalizationMode.NF);
+            var a1 = ttf.infer(a);
+            var b1 = ttf.infer(b);
+            var p = args.get(0).getExpression();
+            var result = ttf.applyLemma(a1, b1, p);
+            var withMaps = ttf.addParameterMaps(result);
+            return typechecker.typecheck(withMaps, contextData.getExpectedType());
+        }
         var translator = new TypesTranslator();
         translator.translateContext(context);
         var expType = translator.infer(contextData.getExpectedType());
         var params = translator.generateParams();
         var finalExpType = typechecker.typecheck(fac.pi(params, expType), null).getExpression();
-        var lam = typechecker.typecheck(args.get(args.size() - 1).getExpression(), finalExpType).getExpression();
+        var lam = typechecker.typecheck(args.get(0).getExpression(), finalExpType).getExpression();
         var bindings = params.stream()
                 .flatMap(concreteParameter -> concreteParameter.getRefList().stream()
                         .map(x -> translator.oldRefs.get(x.getRefName()))).collect(Collectors.toList());
-        bindingsManager = new BindingsManager(bindings);
         try {
-            lam = bindingsManager.set(lam);
-            var ttf = new TypeTermFactory();
+            lam = ttf.bm.set(bindings, lam);
             var constructed = ttf.construct(lam);
             var result = ttf.applyI(constructed);
             var withMaps = ttf.addParameterMaps(result);
