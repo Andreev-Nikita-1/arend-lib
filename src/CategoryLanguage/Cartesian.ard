@@ -56,20 +56,20 @@
   | Proj1Map p => rewrite p C.proj1
   | Proj2Map p => rewrite p C.proj2
 
-\func app {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom mid cod : Type OP} (m1 : Term P mid cod) (m2 : Term P dom mid)
+\func subst {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom mid cod : Type OP} (m1 : Term P mid cod) (m2 : Term P dom mid)
   : Term P dom cod \elim m1
-  | Tuple p m1 m1' => Tuple p (app m1 m2) (app m1' m2)
+  | Tuple p m1 m1' => Tuple p (subst m1 m2) (subst m1' m2)
   | unit p => unit p
-  | Proj1 p m1 => Proj1 p (app m1 m2)
-  | Proj2 p m1 => Proj2 p (app m1 m2)
-  | Param p m1 => Param p (app m1 m2)
+  | Proj1 p m1 => Proj1 p (subst m1 m2)
+  | Proj2 p m1 => Proj2 p (subst m1 m2)
+  | Param p m1 => Param p (subst m1 m2)
   | Var p => rewrite p m2
 
 \func normalize {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (m : Mor P dom cod)
   : Term {OP} P dom cod \elim m
   | Id p => Var p
   | MParam p => Param p (Var idp)
-  | Comp m1 m2 => app (normalize m1) (normalize m2)
+  | Comp m1 m2 => subst (normalize m1) (normalize m2)
   | TerminalMap p => unit p
   | TupleMap p m1 m2 => Tuple p (normalize m1) (normalize m2)
   | Proj1Map p => Proj1 p (Var idp)
@@ -100,7 +100,7 @@
 \func lemma-app {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
                 {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
                 {dom mid cod : Type TP} (t1 : Term P mid cod) (t2 : Term P dom mid)
-  : I tf f t1 `o` I tf f t2 = I tf f (app t1 t2) \elim t1
+  : I tf f t1 `o` I tf f t2 = I tf f (subst t1 t2) \elim t1
   | Tuple p t1 t3 => rewriteI (lemma-app t1 t2, lemma-app t3 t2) lemma-pair
   | unit p => lemma-terminal
   | Var p => lemma-id
