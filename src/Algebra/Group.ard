@@ -29,6 +29,18 @@
       y * (z * inverse z) ==< pmap (y *) inverse-right >==
       y * ide             ==< ide-right >==
       y                   `qed
+
+  \lemma inverse-isInv (x : E) : inverse (inverse x) = x =>
+     AddGroup.negative-isInv {AddGroup.fromGroup \this} x
+
+  \lemma inverse_* (x y : E) : inverse (x * y) = inverse y * inverse x => cancel-left (x * y) (
+    (x * y) / (x * y)         ==< inverse-right >==
+    ide                       ==< inv inverse-right >==
+    x / x                     ==< pmap (x *) (inv ide-left) >==
+    x * (ide / x)             ==< pmap (x * (__ / x)) (inv inverse-right) >==
+    x * ((y / y) / x)         ==< pmap (x *) *-assoc >==
+    x * (y * (inverse y / x)) ==< inv *-assoc >==
+    (x * y) * (inverse y / x) `qed)
 } \where {
   \func op (G : Group) : Group \cowith
     | Monoid => Monoid.op G
@@ -75,15 +87,8 @@
   \lemma negative-isInv (x : E) : negative (negative x) = x =>
     cancel-left (negative x) (negative-right *> inv negative-left)
 
-  \lemma negative_+ (x y : E) : negative (x + y) = negative y - x => cancel-left (x + y) (
-    (x + y) - (x + y)          ==< negative-right >==
-    zro                        ==< inv negative-right >==
-    x - x                      ==< pmap (x +) (inv zro-left) >==
-    x + (zro - x)              ==< pmap (x + (__ - x)) (inv negative-right) >==
-    x + ((y - y) - x)          ==< pmap (x +) +-assoc >==
-    x + (y + (negative y - x)) ==< inv +-assoc >==
-    (x + y) + (negative y - x) `qed
-  )
+  \lemma negative_+ (x y : E) : negative (x + y) = negative y - x
+    => Group.inverse_* {toGroup \this} x y
 
   \lemma negative_zro : negative zro = zro
     => inv zro-right *> negative-left
@@ -152,8 +157,8 @@
 \class AbGroup \extends AddGroup, AbMonoid
   | negative-right => +-comm *> negative-left
   \where {
-    \use \coerce fromCGroup (G : CGroup) => \new AbGroup G.E G.ide (G.*) G.ide-left G.*-assoc G.inverse G.inverse-left G.*-comm
-    \use \coerce toCGroup (G : AbGroup) => \new CGroup G.E G.zro (G.+) G.zro-left G.+-assoc G.negative G.negative-left G.+-comm
+    \use \coerce fromCGroup (G : CGroup) => \new AbGroup G.E G.ide (G.*) G.ide-left G.ide-right G.*-assoc G.inverse G.inverse-left G.*-comm
+    \use \coerce toCGroup (G : AbGroup) => \new CGroup G.E G.zro (G.+) G.zro-left G.zro-right G.+-assoc G.negative G.negative-left G.+-comm
 
     \func equals (A B : AbGroup) (p : A = {AddGroup} B) : A = B
       => path (\lam i => \new AbGroup {
