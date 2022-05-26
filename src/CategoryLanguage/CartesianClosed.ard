@@ -328,16 +328,16 @@
 \func proj2-eq {OP : \Set} {A B AB : Type OP} (p : AB = Prod A B) : B = proj2-type p \elim p
   | idp => idp
 
-\func arr1-type {OP : \Set} {A B AB : Type OP} (p : AB = Arr A B) : Type OP \elim AB
+\func arr2-type {OP : \Set} {A B AB : Type OP} (p : AB = Arr A B) : Type OP \elim AB
   | Arr AB1 AB2 => AB2
 
-\func arr2-eq {OP : \Set} {A B AB : Type OP} (p : AB = Arr A B) : B = arr1-type p \elim p
+\func arr2-eq {OP : \Set} {A B AB : Type OP} (p : AB = Arr A B) : arr2-type p = B \elim p
   | idp => idp
 
-\func arr2-type {OP : \Set} {A B AB : Type OP} (p : AB = Arr A B) : Type OP \elim AB
+\func arr1-type {OP : \Set} {A B AB : Type OP} (p : AB = Arr A B) : Type OP \elim AB
   | Arr AB1 AB2 => AB1
 
-\func arr1-eq {OP : \Set} {A B AB : Type OP} (p : AB = Arr A B) : A = arr2-type p \elim p
+\func arr1-eq {OP : \Set} {A B AB : Type OP} (p : AB = Arr A B) : arr1-type p = A \elim p
   | idp => idp
 
 \func normalize-beta {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (t : Term P dom cod) : Term P dom cod \elim t
@@ -354,8 +354,8 @@
   | unit p => unit p
   | Var p => Var p
   | App t1 t2 => \case (normalize-beta t1) \with {
-    | Lam p t => rewriteI (arr2-eq p)
-        (subst t (rewrite (arr1-eq p) (Tuple idp (Var idp) (normalize-beta t2))))
+    | Lam p t => rewrite (arr2-eq p)
+        (subst t (rewriteI (arr1-eq p) (Tuple idp (Var idp) (normalize-beta t2))))
     | t' => App t' (normalize-beta t2)
   }
   | Lam p t1 => Lam p (normalize-beta t1)
@@ -416,19 +416,20 @@ transportInv (\lam x0 => Hom (IT tf dom) (IT tf x0)) p1 (CartesianPrecat.pair (I
   rewrite (pA, pB) idp
 
 \func eq-arr-lemma {TP : \Set} {A B A' B' : Type TP} (p : Arr A B = Arr A' B')
-  : p = eq-arr (arr1-eq (inv p)) (arr2-eq (inv p)) => Path.inProp _ _
+  : p = eq-arr (arr1-eq p) (arr2-eq p) => Path.inProp _ _
 
 \func lemma-arr1 {C : CartesianClosedPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
                  {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
                  {dom mid cod s t : Type TP} (t1 : Term P dom (Arr mid cod)) (t2 : Term P dom mid)
                  (p : mid = s) (q : cod = t) (x : Term P (Prod dom s) t) (p1 : normalize-beta t1 = Lam (eq-arr p q) x)
-  : ev ∘ C.pair (I tf f t1) (I tf f t2) = I tf f (coe (\lam i => Term P dom (q @ i))
-    (subst x (transportInv (\lam x0 => Term P dom (Prod dom x0)) p (Tuple idp (Var idp) (normalize-beta t2))))
-    right)
+                 (l1 : I tf f t1 = I tf f (normalize-beta t1)) (l2 : I tf f t2 = I tf f (normalize-beta t2))
+  : ev ∘ CartesianPrecat.pair (I tf f t1) (I tf f t2) = I tf f (transportInv (Term P dom) q
+    (subst x (transport (\lam x0 => Term P dom (Prod dom x0)) p (Tuple idp (Var idp) (normalize-beta t2)))))\elim p, q
+  | idp, idp => rewrite (l1, p1, inv (lemma-subst _ _)) (C.lam-lemma *> pmap (I tf f x `o`) (C.pair-unique' idp l2))
 
 \func lemma-beta {C : CartesianClosedPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
-                  {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
-                  {dom cod : Type TP} (t : Term P dom cod) : I tf f t = I tf f (normalize-beta t) \elim t
+                 {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                 {dom cod : Type TP} (t : Term P dom cod) : I tf f t = I tf f (normalize-beta t) \elim t
   | Tuple p t1 t2 => rewrite (lemma-beta t1, lemma-beta t2) idp
   | unit p => idp
   | Proj1 {S} {TS} p t => cases (normalize-beta t arg addPath) \with {
@@ -465,22 +466,24 @@ transportInv (\lam x0 => Hom (IT tf dom) (IT tf x0)) p1 (CartesianPrecat.pair (I
     | Param p x, p1 => rewrite (lemma-beta t1, p1) (pmap (ev `o`) (C.pair-unique' idp (lemma-beta t2)))
     | Var p, p1 => rewrite (lemma-beta t1, p1) (pmap (ev `o`) (C.pair-unique' idp (lemma-beta t2)))
     | App x1 x2, p => rewrite (lemma-beta t1, p) (pmap (ev `o`) (C.pair-unique' idp (lemma-beta t2)))
-    | Lam p x, p1 => {?}
+    | Lam p x, p1 =>
+      \let p2 => rewrite (eq-arr-lemma p) p1
+      \in lemma-arr1 {_} {_} {_}{tf}{f} t1 t2 (arr1-eq p) (arr2-eq p) x p2 (lemma-beta t1) (lemma-beta t2)
   }
   | Lam p t1 => rewrite (lemma-beta t1) (\case \elim cod, \elim p \with {
     | _, idp => idp
   })
---
---\func normalize-full {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (m : Mor P dom cod)
---  : Term {OP} P dom cod => normalize-beta (eta-long (normalize m))
---
---\func lemma-normalize-full {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
---                           {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
---                           {dom cod : Type TP} (m : Mor P dom cod)
---  : IM tf f m = I tf f (normalize-full m) =>
---  rewrite (lemma-normalize m, lemma-eta (normalize m), lemma-beta (eta-long (normalize m))) idp
---
---\func lemma {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
---            {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
---            {dom cod : Type TP} (m m1 : Mor P dom cod) (p : I tf f (normalize-full m) = I tf f (normalize-full m1))
---  : IM tf f m = IM tf f m1 => lemma-normalize-full m *> p *> inv (lemma-normalize-full m1)
+
+\func normalize-full {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (m : Mor P dom cod)
+  : Term {OP} P dom cod => normalize-beta (eta-long (normalize m))
+
+\func lemma-normalize-full {C : CartesianClosedPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+                           {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+                           {dom cod : Type TP} (m : Mor P dom cod)
+  : IM tf f m = I tf f (normalize-full m) =>
+  rewrite (lemma-normalize m, lemma-eta (normalize m), lemma-beta (eta-long (normalize m))) idp
+
+\func lemma {C : CartesianClosedPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
+            {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
+            {dom cod : Type TP} (m m1 : Mor P dom cod) (p : I tf f (normalize-full m) = I tf f (normalize-full m1))
+  : IM tf f m = IM tf f m1 => lemma-normalize-full m *> p *> inv (lemma-normalize-full m1)

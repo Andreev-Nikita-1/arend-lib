@@ -476,12 +476,11 @@
   \func prodMap {x y x' y' : Ob} (f : Hom x y) (f' : Hom x' y') : Hom (Bprod x x') (Bprod y y') =>
     pair (f ∘ proj1) (f' ∘ proj2)
 
+  \lemma beta1 {x y z : Ob} (f : Hom z x) (g : Hom z y) : proj1 ∘ pair f g = f => tupleBeta {Bprod x y}
+  \lemma beta1' {x y z : Ob} {f : Hom z x} {g : Hom z y} : proj1 ∘ pair f g = f => tupleBeta {Bprod x y}
 
-  \lemma beta1 {x y z : Ob} (f : Hom z x) (g : Hom z y) : proj1 ∘ pair f g = f
-    => tupleBeta {Bprod x y}
-
-  \lemma beta2 {x y z : Ob} (f : Hom z x) (g : Hom z y) : proj2 ∘ pair f g = g
-    => tupleBeta {Bprod x y}
+  \lemma beta2 {x y z : Ob} (f : Hom z x) (g : Hom z y) : proj2 ∘ pair f g = g => tupleBeta {Bprod x y}
+  \lemma beta2' {x y z : Ob} {f : Hom z x} {g : Hom z y} : proj2 ∘ pair f g = g => tupleBeta {Bprod x y}
 
   \lemma pair-unique {x y z : Ob} {h1 h2 : Hom z (Bprod x y)} (p1 : proj1 ∘ h1 = proj1 ∘ h2) (p2 : proj2 ∘ h1 = proj2 ∘ h2) : h1 = h2
     => tupleEq $ \case \elim __ \with {
@@ -560,6 +559,13 @@
 
   \func lam-id {x y : Ob} : id _ = lam (ev {_} {x} {y}) =>
     lam-uniq (unfold prodMap (rewrite (id-left, id-left, pair-proj, id-right)idp))
+
+  \func lemma {x y z : Ob} {g1 : Hom x y} {g2 : Hom x z} : pair g1 g2 = prodMap g1 (id _) `o` pair (id _) g2
+    => rewrite pair-comp (pair-unique' (rewriteI {1} id-right (pmap (g1 `o`) (inv beta1')) *> inv o-assoc)
+        (inv beta2' *> inv id-left *> inv o-assoc))
+
+  \func lam-lemma {x y z : Ob} {g : Hom (Bprod x y) z} {h : Hom x y} : ev `o` pair (lam g) h = g `o` pair (id _) h
+    => pmap (ev `o`) lemma *> inv o-assoc *> pmap (__ `o` pair (id x) h ) (lam-comm g)
 }
 
 \class FinCompletePrecat \extends PrecatWithPullbacks, CartesianPrecat {
