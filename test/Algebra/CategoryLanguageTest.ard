@@ -1,6 +1,9 @@
 \import Category
 \import Category.Limit
 \import Category.Meta
+\import CategoryLanguage.CartesianClosed
+\import Data.List
+\import Logic
 
 \func abbaTest {Ct : CartesianPrecat} (A B : Ct) : Hom (Bprod A B) (Bprod B A) =>
   my_meta (\lam A B x => (x.2, x.1)) A B
@@ -40,3 +43,36 @@
 
 \func bindingsEqTest (Ct : CartesianPrecat) (A B : Nat -> Ct) (h : Nat -> Hom (A 0) (B 0))
   : h 0 `o` id _ = h 0 => my_meta idp
+
+\func expTest1 {Ct : CartesianClosedPrecat} (A B C : Ct) : Hom (Bprod (exp A B) (exp B C)) (exp A C) =>
+  my_meta (\lam A B C p => \lam x => p.2 (p.1 x)) A B C
+
+\func expTest1' {Ct : CartesianClosedPrecat} (A B C : Ct) : Hom (exp A B) (exp (exp B C) (exp A C)) =>
+    my_meta (\lam A B C p h a => h (p a)) A B C
+
+\func expTest2 {Ct : CartesianClosedPrecat} (A B : Ct) : Hom (Bprod (exp A B) A) B =>
+  my_meta (\lam A B p => p.1 p.2) A B
+
+\func expTest3 {Ct : CartesianClosedPrecat} (A B C : Ct) : Hom (Bprod (exp A B) (exp A C)) (exp A (Bprod B C)) =>
+  my_meta (\lam A B C p a => (p.1 a, p.2 a)) A B C
+
+\func expTest4 {Ct : CartesianClosedPrecat} (A B C : Ct) : Hom (exp A (Bprod B C)) (Bprod (exp A B) (exp A C)) =>
+  my_meta (\lam A B C p => (\lam a => (p a).1, \lam a => (p a).2)) A B C
+
+\func expTest5 {Ct : CartesianClosedPrecat} (A B C : Ct) (h : Hom (Bprod C A) B) : Hom C (exp A B) =>
+  my_meta (\lam A B C h c => \lam a => h (c, a)) A B C h
+
+--  \let | obs => Fin 3
+--       | obsMap => (!!) (A :: B :: C :: nil)
+--       | mors : \Pi (dom : Type obs) (cod : Type obs) -> \Set => \lam dom cod => \case dom, cod \with {
+--         | Prod (TParam 2) (TParam 0), TParam 1 => Fin 1
+--         | _, _ => Empty
+--       }
+--       | morsMap : \Pi (dom : Type obs) (cod : Type obs) (n : mors dom cod) -> Ih obsMap dom cod =>
+--         \lam dom cod n => \case dom, cod, n \with {
+--           | Prod (TParam 2) (TParam 0), TParam 1, n => (h :: nil) !! n
+--         }
+--  \in I obsMap morsMap
+--      (Lam {obs} {mors} {TParam {obs} 2} idp (Param {obs} {mors} {Prod {obs} (TParam {obs} 2) (TParam {obs} 0)} {TParam {obs} 1} 0 (Tuple {obs} {mors} {Prod {obs} (TParam {obs} 2) (TParam {obs} 0)} idp
+--          (Proj1 {obs} {mors} {Prod {obs} (TParam {obs} 2) (TParam {obs} 0)} idp (Var {obs} {mors} {Prod {obs} (TParam {obs} 2) (TParam {obs} 0)} {Prod {obs} (TParam {obs} 2) (TParam {obs} 0)} idp))
+--          (Proj2 {obs} {mors} {Prod {obs} (TParam {obs} 2) (TParam {obs} 0)} idp (Var {obs} {mors} {Prod {obs} (TParam {obs} 2) (TParam {obs} 0)} {Prod {obs} (TParam {obs} 2) (TParam {obs} 0)} idp)))))

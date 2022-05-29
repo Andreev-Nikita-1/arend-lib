@@ -20,6 +20,7 @@ import org.arend.lib.key.ReflexivityKey;
 import org.arend.lib.key.TransitivityKey;
 import org.arend.lib.level.StdLevelProver;
 import org.arend.lib.meta.*;
+import org.arend.lib.meta.CategoryLangMeta;
 import org.arend.lib.meta.cong.CongruenceMeta;
 import org.arend.lib.meta.debug.PrintMeta;
 import org.arend.lib.meta.debug.RandomMeta;
@@ -109,13 +110,16 @@ public class StdExtension implements ArendExtension {
     provider.load(this);
     provider.load(simpCoeMeta);
     provider.load(sipMeta);
-    provider.load(categoryLangMeta);
+
     provider.getDefinition(ModulePath.fromString("Data.List"), new LongName("ListMonoid"), CoreFunctionDefinition.class);
     provider.getDefinition(ModulePath.fromString("Arith.Nat"), new LongName("NatSemiring"), CoreFunctionDefinition.class);
     provider.getDefinition(ModulePath.fromString("Arith.Int"), new LongName("IntRing"), CoreFunctionDefinition.class);
     provider.getDefinition(ModulePath.fromString("Order.Lexicographical"), new LongName("LexicographicalProduct"), CoreFunctionDefinition.class);
     provider.getDefinition(ModulePath.fromString("Order.Lexicographical"), new LongName("LexicographicalList"), CoreFunctionDefinition.class);
     provider.load(equationMeta);
+    provider.load(categoryLangMeta);
+    provider.load(categoryLangMeta.cfp);
+    provider.load(categoryLangMeta.ccfp);
   }
 
   @Override

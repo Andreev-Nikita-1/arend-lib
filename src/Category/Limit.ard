@@ -431,7 +431,7 @@
       }
 
     }
-  }
+
 
 \class PrecatWithPullbacks \extends Precat
   | pullback {x y z : Ob} (f : Hom x z) (g : Hom y z) : Pullback f g
@@ -492,7 +492,6 @@
   \lemma pair-unique' {x y z : Ob} {h1 h2 : Hom z x} {g1 g2 : Hom z y} (p : h1 = h2) (q : g1 = g2) : pair h1 g1 = pair h2 g2 =>
     rewrite (p, q) idp
 
-  \lemma terminal-unique {x : Ob} {h : Hom x terminal} : h = terminalMap => tupleEq (\case __)
 
   \lemma pair-comp {x y z w : Ob} {f : Hom x y} {g : Hom y z} {h : Hom y w} : pair g h ∘ f = pair (g ∘ f) (h ∘ f) =>
     pair-unique (rewriteEq (beta1 g h) $ inv (beta1 _ _)) (rewriteEq (beta2 g h) $ inv (beta2 _ _))
@@ -524,27 +523,27 @@
     | inv_f => rewrite (pair-comp,pair-comp,beta1,o-assoc,beta2,beta1,o-assoc,beta2,beta2,inv pair-comp,pair-proj,id-left) pair-proj
     | f_inv => rewrite (pair-comp,o-assoc,beta1,beta1,pair-comp,beta2,o-assoc,beta1,beta2,inv pair-comp,pair-proj,id-left) pair-proj
 
-  \func finProd (obs : Array Ob) : Product obs \elim obs
-    | nil => \new Product {
-      | apex => terminal
-      | proj => \lam x => \case x
-      | tupleMap => \lam x => terminal.tupleMap (\case __)
-      | tupleBeta => \lam x y => \case y
-      | tupleEq => \lam x => terminal.tupleEq (\case __)
-    }
-    | :: a arr => \new Product {
-      | apex => Bprod a (finProd arr)
-      | proj => \lam i => \case \elim i \with {
-        | 0 => proj1
-        | suc i => proj i `o` proj2
-      }
-      | tupleMap => \lam f => pair (f 0) (tupleMap (unfold (\lam i => f (suc i))))
-      | tupleBeta => \lam f j => \case \elim j \with {
-        | 0 => beta1 _ _
-        | suc j => \let x => beta2 (f 0) (tupleMap {finProd arr} (\lam i => f (suc i))) \in  o-assoc *> pmap (proj j `o` __) x *> tupleBeta _ _
-      }
-      | tupleEq => \lam x => pair-unique (x 0) (tupleEq (\lam j => inv o-assoc *> x (suc j) *> o-assoc))
-    }
+--  \func finProd (obs : Array Ob) : Product obs \elim obs
+--    | nil => \new Product {
+--      | apex => terminal
+--      | proj => \lam x => \case x
+--      | tupleMap => \lam x => terminal.tupleMap (\case __)
+--      | tupleBeta => \lam x y => \case y
+--      | tupleEq => \lam x => terminal.tupleEq (\case __)
+--    }
+--    | :: a arr => \new Product {
+--      | apex => Bprod a (finProd arr)
+--      | proj => \lam i => \case \elim i \with {
+--        | 0 => proj1
+--        | suc i => proj i `o` proj2
+--      }
+--      | tupleMap => \lam f => pair (f 0) (tupleMap (unfold (\lam i => f (suc i))))
+--      | tupleBeta => \lam f j => \case \elim j \with {
+--        | 0 => beta1 _ _
+--        | suc j => \let x => beta2 (f 0) (tupleMap {finProd arr} (\lam i => f (suc i))) \in  o-assoc *> pmap (proj j `o` __) x *> tupleBeta _ _
+--      }
+--      | tupleEq => \lam x => pair-unique (x 0) (tupleEq (\lam j => inv o-assoc *> x (suc j) *> o-assoc))
+--    }
 }
 
 \class CartesianClosedPrecat \extends CartesianPrecat {
