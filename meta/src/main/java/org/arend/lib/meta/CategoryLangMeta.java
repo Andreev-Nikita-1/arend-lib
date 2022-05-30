@@ -13,8 +13,6 @@ import org.arend.ext.core.expr.*;
 import org.arend.ext.core.ops.CMP;
 import org.arend.ext.core.ops.NormalizationMode;
 import org.arend.ext.dependency.Dependency;
-import org.arend.ext.error.GeneralError;
-import org.arend.ext.error.LocalError;
 import org.arend.ext.reference.ArendRef;
 import org.arend.ext.typechecking.*;
 import org.arend.ext.util.Pair;
@@ -23,7 +21,6 @@ import org.arend.lib.util.Utils;
 import org.arend.lib.util.Values;
 import org.jetbrains.annotations.NotNull;
 
-import java.lang.instrument.ClassDefinition;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -66,8 +63,6 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         public CoreFunctionDefinition getI();
 
         public CoreFunctionDefinition getIh();
-
-        public CoreFunctionDefinition getLemma();
 
         public CoreDataDefinition getMor();
 
@@ -131,6 +126,28 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         default public CoreClassField getExp() {
             return null;
         }
+
+        default public CoreClassField getEv() {
+            return null;
+        }
+
+        default public CoreClassField getLamCat() {
+            return null;
+        }
+
+        public CoreFunctionDefinition getToTerm();
+
+        public CoreFunctionDefinition getLemmaToTerm();
+
+        public CoreFunctionDefinition getNormalizeBeta();
+
+        public CoreFunctionDefinition getLemmaBeta();
+
+        public CoreFunctionDefinition getEtaLong();
+
+        public CoreFunctionDefinition getLemmaEta();
+
+
     }
 
     static class CartesianFieldsProvider implements FieldsProvider {
@@ -180,10 +197,6 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
         public CoreFunctionDefinition getIh() {
             return Ih;
-        }
-
-        public CoreFunctionDefinition getLemma() {
-            return lemma;
         }
 
         public CoreDataDefinition getMor() {
@@ -284,8 +297,6 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         public CoreFunctionDefinition I;
         @Dependency(module = "CategoryLanguage.Cartesian", name = "Ih")
         public CoreFunctionDefinition Ih;
-        @Dependency(module = "CategoryLanguage.Cartesian", name = "lemma")
-        public CoreFunctionDefinition lemma;
         @Dependency(module = "CategoryLanguage.Cartesian", name = "Mor")
         public CoreDataDefinition Mor;
         @Dependency(module = "CategoryLanguage.Cartesian", name = "Mor.Id")
@@ -322,6 +333,51 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         public CoreClassField tupleMap;
         @Dependency(module = "Category.Limit", name = "Product.proj")
         public CoreClassField proj;
+
+
+        public CoreFunctionDefinition getNormalizeBeta() {
+            return normalizeBeta;
+        }
+
+        public CoreFunctionDefinition getLemmaBeta() {
+            return lemmaBeta;
+        }
+
+        @Override
+        public CoreFunctionDefinition getToTerm() {
+            return toTerm;
+        }
+
+        @Override
+        public CoreFunctionDefinition getLemmaToTerm() {
+            return lemmaToTerm;
+        }
+
+        @Override
+        public CoreFunctionDefinition getEtaLong() {
+            return etaLong;
+        }
+
+        @Override
+        public CoreFunctionDefinition getLemmaEta() {
+            return lemmaEta;
+        }
+
+        @Dependency(module = "CategoryLanguage.Cartesian", name = "to-term")
+        public CoreFunctionDefinition toTerm;
+        @Dependency(module = "CategoryLanguage.Cartesian", name = "lemma-to-term")
+        public CoreFunctionDefinition lemmaToTerm;
+
+        @Dependency(module = "CategoryLanguage.Cartesian", name = "normalize-beta")
+        public CoreFunctionDefinition normalizeBeta;
+        @Dependency(module = "CategoryLanguage.Cartesian", name = "lemma-beta")
+        public CoreFunctionDefinition lemmaBeta;
+
+        @Dependency(module = "CategoryLanguage.Cartesian", name = "eta-long")
+        public CoreFunctionDefinition etaLong;
+        @Dependency(module = "CategoryLanguage.Cartesian", name = "lemma-eta")
+        public CoreFunctionDefinition lemmaEta;
+
 
     }
 
@@ -374,9 +430,6 @@ public class CategoryLangMeta extends BaseMetaDefinition {
             return Ih;
         }
 
-        public CoreFunctionDefinition getLemma() {
-            return lemma;
-        }
 
         public CoreDataDefinition getMor() {
             return Mor;
@@ -482,8 +535,52 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         public CoreFunctionDefinition I;
         @Dependency(module = "CategoryLanguage.CartesianClosed", name = "Ih")
         public CoreFunctionDefinition Ih;
-        @Dependency(module = "CategoryLanguage.CartesianClosed", name = "lemma")
-        public CoreFunctionDefinition lemma;
+
+        @Dependency(module = "CategoryLanguage.CartesianClosed", name = "to-term")
+        public CoreFunctionDefinition toTerm;
+        @Dependency(module = "CategoryLanguage.CartesianClosed", name = "lemma-to-term")
+        public CoreFunctionDefinition lemmaToTerm;
+
+        @Dependency(module = "CategoryLanguage.CartesianClosed", name = "normalize-beta")
+        public CoreFunctionDefinition normalizeBeta;
+        @Dependency(module = "CategoryLanguage.CartesianClosed", name = "lemma-beta")
+        public CoreFunctionDefinition lemmaBeta;
+
+        @Override
+        public CoreFunctionDefinition getToTerm() {
+            return toTerm;
+        }
+
+        @Override
+        public CoreFunctionDefinition getLemmaToTerm() {
+            return lemmaToTerm;
+        }
+
+        @Override
+        public CoreFunctionDefinition getNormalizeBeta() {
+            return normalizeBeta;
+        }
+
+        @Override
+        public CoreFunctionDefinition getLemmaBeta() {
+            return lemmaBeta;
+        }
+
+        @Override
+        public CoreFunctionDefinition getEtaLong() {
+            return etaLong;
+        }
+
+        @Override
+        public CoreFunctionDefinition getLemmaEta() {
+            return lemmaEta;
+        }
+
+        @Dependency(module = "CategoryLanguage.CartesianClosed", name = "eta-long")
+        public CoreFunctionDefinition etaLong;
+        @Dependency(module = "CategoryLanguage.CartesianClosed", name = "lemma-eta")
+        public CoreFunctionDefinition lemmaEta;
+
         @Dependency(module = "CategoryLanguage.CartesianClosed", name = "Mor")
         public CoreDataDefinition Mor;
         @Dependency(module = "CategoryLanguage.CartesianClosed", name = "Mor.Id")
@@ -552,6 +649,19 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
         @Dependency(module = "Category.Limit", name = "CartesianClosedPrecat.exp")
         public CoreClassField exp;
+
+        public CoreClassField getEv() {
+            return ev;
+        }
+
+        public CoreClassField getLamCat() {
+            return lam;
+        }
+
+        @Dependency(module = "Category.Limit", name = "CartesianClosedPrecat.lam")
+        public CoreClassField lam;
+        @Dependency(module = "Category.Limit", name = "CartesianClosedPrecat.ev")
+        public CoreClassField ev;
     }
 
 
@@ -595,7 +705,7 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
         private Values<CoreExpression> oldBindings;
         private Values<CoreExpression> newBindings;
-//        public Values<CoreExpression> obsValuesNew = new Values<>(typechecker, marker);
+        //        public Values<CoreExpression> obsValuesNew = new Values<>(typechecker, marker);
         private List<Pair<Pair<CoreExpression, CoreExpression>, Values<CoreExpression>>> newMorsValuesList = new ArrayList<>();
 
 
@@ -854,6 +964,17 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                     fac.arg(fac.number(i), true));
         }
 
+        public ConcreteExpression lamMap(ConcreteExpression dom, ConcreteExpression cod,
+                                         ConcreteExpression h) {
+            return fac.app(fac.ref(fp.getLamMap().getRef()),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(dom, false),
+                    fac.arg(cod, false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true),
+                    fac.arg(h, true));
+        }
+
         public ConcreteExpression comp(ConcreteExpression dom, ConcreteExpression cod, ConcreteExpression mid,
                                        ConcreteExpression a, ConcreteExpression b) {
             return fac.app(fac.ref(fp.getComp().getRef()),
@@ -882,6 +1003,16 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                     fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true),
                     fac.arg(a, true),
                     fac.arg(b, true)
+            );
+        }
+
+        public ConcreteExpression evMap(ConcreteExpression dom, ConcreteExpression cod) {
+            return fac.app(fac.ref(fp.getEvMap().getRef()),
+                    fac.arg(fac.ref(obs), false),
+                    fac.arg(fac.ref(mors), false),
+                    fac.arg(dom, false),
+                    fac.arg(cod, false),
+                    fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true)
             );
         }
 
@@ -962,7 +1093,7 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
         }
 
-        public ConcreteExpression addParameterMaps(ConcreteExpression expression, boolean eqMode) {
+        public ConcreteExpression addParameterMaps(ConcreteExpression expression) {
             var obsTerm = fac.app(fac.ref(ext.prelude.getFin().getRef()),
                     fac.arg(fac.number(bm.obsValues.getValues().size()), true));
             var obsArgs = bm.obsValues.getValues().stream()
@@ -1181,6 +1312,14 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                         if (classField == fp.getBprod()) {
                             return prodT(infer(arg1), infer(arg2));
                         }
+                        if (classField == fp.getExp()) {
+                            return arr(infer(arg1), infer(arg2));
+                        }
+                        if (classField == fp.getEv()) {
+                            var a = infer(arg1);
+                            var b = infer(arg2);
+                            return evMap(prodT(arr(a, b), a), b);
+                        }
                         if (classField == fp.getTupleMapCat()) {
                             var arg = ((CoreFieldCallExpression) func).getArgument();
                             if (arg instanceof CoreFieldCallExpression) {
@@ -1195,12 +1334,19 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                         }
                     }
                     if (func instanceof CoreAppExpression) {
-                        var A = infer(((CoreAppExpression) (((CoreAppExpression) ((CoreAppExpression) func).getFunction()).getFunction())).getArgument());
-                        var B = infer(((CoreAppExpression) ((CoreAppExpression) func).getFunction()).getArgument());
-                        var C = infer(((CoreAppExpression) func).getArgument());
-                        var arg1 = infer(((CoreAppExpression) ((CoreAppExpression) expr).getFunction()).getArgument());
-                        var arg2 = infer(((CoreAppExpression) expr).getArgument());
-                        return comp(A, C, B, arg1, arg2);
+                        if (((CoreAppExpression) func).getFunction() instanceof CoreAppExpression && ((CoreAppExpression) ((CoreAppExpression) func).getFunction()).getFunction() instanceof CoreAppExpression) {
+                            var A = infer(((CoreAppExpression) (((CoreAppExpression) ((CoreAppExpression) func).getFunction()).getFunction())).getArgument());
+                            var B = infer(((CoreAppExpression) ((CoreAppExpression) func).getFunction()).getArgument());
+                            var C = infer(((CoreAppExpression) func).getArgument());
+                            var arg1 = infer(((CoreAppExpression) ((CoreAppExpression) expr).getFunction()).getArgument());
+                            var arg2 = infer(((CoreAppExpression) expr).getArgument());
+                            return comp(A, C, B, arg1, arg2);
+                        }
+                        var A = infer(((CoreAppExpression) ((CoreAppExpression) func).getFunction()).getArgument());
+                        var B = infer(((CoreAppExpression) func).getArgument());
+                        var C = infer(((CoreAppExpression) f).getArgument());
+                        var h = infer(((CoreAppExpression) expr).getArgument());
+                        return lamMap(C, arr(A, B), h);
                     }
                 }
                 if (f instanceof CoreFieldCallExpression) {
@@ -1239,19 +1385,6 @@ public class CategoryLangMeta extends BaseMetaDefinition {
                 }
             }
             return null;
-        }
-
-        public ConcreteExpression applyLemma(ConcreteExpression m, ConcreteExpression m1, ConcreteExpression p) {
-            return fac.app(fac.ref(fp.getLemma().getRef()),
-                    fac.arg(fac.hole(), false),
-                    fac.arg(fac.ref(obs), false),
-                    fac.arg(fac.ref(mors), false),
-                    fac.arg(fac.ref(obsMap), false),
-                    fac.arg(fac.ref(morsMap), false),
-                    fac.arg(m, true),
-                    fac.arg(m1, true),
-                    fac.arg(p, true)
-            );
         }
     }
 
@@ -1361,6 +1494,34 @@ public class CategoryLangMeta extends BaseMetaDefinition {
         }
     }
 
+    private ConcreteExpression normalizeEq(FieldsProvider fp, TypeTermFactory ttf, ConcreteExpression m) {
+        ConcreteExpression res = fac.app(fac.ref(fp.getLemmaToTerm().getRef()),
+                fac.arg(fac.hole(), false), fac.arg(fac.hole(), false), fac.arg(fac.hole(), false), fac.arg(fac.ref(ttf.obsMap), false), fac.arg(fac.ref(ttf.morsMap), false), fac.arg(m, true));
+        var x = typechecker.typecheck(fac.app(fac.ref(fp.getToTerm().getRef()), fac.arg(ttf.addParameterMaps(m), true)), null).getExpression().normalize(NormalizationMode.NF);
+        m = fac.app(fac.ref(fp.getToTerm().getRef()), fac.arg(m, true));
+        while (true) {
+            var nx = typechecker.typecheck(fac.app(fac.ref(fp.getNormalizeBeta().getRef()), fac.arg(fac.core(x.computeTyped()), true)), null).getExpression().normalize(NormalizationMode.NF);
+            if (compare(x, nx)) {
+                break;
+            }
+            res = fac.app(fac.ref(ext.concat.getRef()), fac.arg(res, true),
+                    fac.arg(fac.app(fac.ref(fp.getLemmaBeta().getRef()), fac.arg(fac.hole(), false), fac.arg(fac.hole(), false), fac.arg(fac.hole(), false), fac.arg(fac.ref(ttf.obsMap), false), fac.arg(fac.ref(ttf.morsMap), false), fac.arg(m, true)), true));
+            x = nx;
+            m = fac.app(fac.ref(fp.getNormalizeBeta().getRef()), fac.arg(m, true));
+        }
+        while (true) {
+            var nx = typechecker.typecheck(fac.app(fac.ref(fp.getEtaLong().getRef()), fac.arg(fac.core(x.computeTyped()), true)), null).getExpression().normalize(NormalizationMode.NF);
+            if (compare(x, nx)) {
+                return res;
+            }
+            res = fac.app(fac.ref(ext.concat.getRef()), fac.arg(res, true),
+                    fac.arg(fac.app(fac.ref(fp.getLemmaEta().getRef()), fac.arg(fac.hole(), false), fac.arg(fac.hole(), false), fac.arg(fac.hole(), false), fac.arg(fac.ref(ttf.obsMap), false), fac.arg(fac.ref(ttf.morsMap), false), fac.arg(m, true)), true));
+            x = nx;
+            m = fac.app(fac.ref(fp.getEtaLong().getRef()), fac.arg(m, true));
+        }
+    }
+
+
     @Override
     public TypedExpression invokeMeta(@NotNull ExpressionTypechecker typechecker, @NotNull ContextData contextData) {
         fac = ext.factory.withData(contextData.getMarker());
@@ -1381,9 +1542,13 @@ public class CategoryLangMeta extends BaseMetaDefinition {
             var b = eq.getDefCallArguments().get(2).normalize(NormalizationMode.NF);
             var a1 = ttf.infer(a);
             var b1 = ttf.infer(b);
+            var eq1 = normalizeEq(fp, ttf, a1);
+            var eq2 = normalizeEq(fp, ttf, b1);
             var p = args.get(0).getExpression();
-            var result = ttf.applyLemma(a1, b1, p);
-            var withMaps = ttf.addParameterMaps(result, true);
+            var result = fac.app(fac.ref(ext.concat.getRef()),
+                    fac.arg(fac.app(fac.ref(ext.concat.getRef()), fac.arg(eq1, true), fac.arg(p, true)), true),
+                    fac.arg(fac.app(fac.ref(ext.inv.getRef()), fac.arg(eq2, true)), true));
+            var withMaps = ttf.addParameterMaps(result);
             return typechecker.typecheck(withMaps, contextData.getExpectedType());
         }
         var translator = new TypesTranslator(fp);
@@ -1412,7 +1577,7 @@ public class CategoryLangMeta extends BaseMetaDefinition {
             lam = ttf.bm.set(bindings, lam);
             var constructed = ttf.construct(lam);
             var result = ttf.applyI(constructed);
-            var withMaps = ttf.addParameterMaps(result, false);
+            var withMaps = ttf.addParameterMaps(result);
             return typechecker.typecheck(withMaps, contextData.getExpectedType());
         } catch (Exception e) {
             e.printStackTrace();

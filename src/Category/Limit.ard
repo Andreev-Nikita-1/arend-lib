@@ -565,6 +565,8 @@
 
   \func lam-lemma {x y z : Ob} {g : Hom (Bprod x y) z} {h : Hom x y} : ev `o` pair (lam g) h = g `o` pair (id _) h
     => pmap (ev `o`) lemma *> inv o-assoc *> pmap (__ `o` pair (id x) h ) (lam-comm g)
+  \func lam-lemma' {x y z : Ob} {g : Hom z (exp x y)}  : g = lam (ev `o` pair (g `o` proj1) (proj2))
+    => lam-uniq (unfold prodMap (rewrite id-left idp))
 }
 
 \class FinCompletePrecat \extends PrecatWithPullbacks, CartesianPrecat {
