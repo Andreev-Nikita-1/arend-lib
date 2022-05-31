@@ -89,3 +89,15 @@
 
 \func expEqTest3' {Ct : CartesianClosedPrecat} (A B C : Ct) : expTest3' A B C `o` expTest3 A B C = id _ =>
   my_meta idp
+
+\func associator {Ct : CartesianPrecat} (A B C : Ct) : Hom (Bprod A (Bprod B C)) (Bprod (Bprod A B) C) =>
+  my_meta (\lam A B C x => ((x.1, x.2.1), x.2.2)) A B C
+
+\func associator' {Ct : CartesianPrecat} (A B C : Ct) : Hom (Bprod (Bprod A B) C) (Bprod A (Bprod B C)) =>
+  my_meta (\lam A B C x => (x.1.1, (x.1.2, x.2))) A B C
+
+\func associator-iso {Ct : CartesianPrecat} (A B C : Ct) : associator A B C `o` associator' A B C = id _ =>
+  my_meta idp
+
+\func associator-iso' {Ct : CartesianPrecat} (A B C : Ct) : associator' A B C `o` associator A B C = id _ =>
+  my_meta idp
