@@ -2,8 +2,11 @@
 \import Algebra.Group.Category
 \import Algebra.Monoid
 \import Algebra.Monoid.Category
+\import Algebra.Pointed
 \import Algebra.Ring
 \import Algebra.Semiring
+\import Arith.Int
+\import Arith.Nat
 \import Category
 \import Category.Adjoint
 \import Category.Functor
@@ -11,6 +14,8 @@
 \import Category.Meta
 \import Category.Subcat
 \import Equiv \hiding (Map)
+\import Function.Meta
+\import HLevel
 \import Logic
 \import Logic.FirstOrder.Algebraic
 \import Logic.FirstOrder.Algebraic.Category
@@ -23,6 +28,10 @@
 \record SemiringHom \extends AddMonoidHom, MonoidHom {
   \override Dom : Semiring
   \override Cod : Semiring
+
+  \lemma func-natCoef {n : Nat} : func (natCoef n) = natCoef n \elim n
+    | 0 => rewrite (natCoefZero,natCoefZero) func-zro
+    | suc n => rewrite (natCoefSuc,natCoefSuc) $ func-+ *> pmap2 (+) func-natCoef func-ide
 }
 
 \record RingHom \extends SemiringHom, AddGroupHom {
@@ -31,6 +40,15 @@
 } \where {
     \func equals {R S : Ring} {f g : RingHom R S} (p : \Pi (x : R) -> f x = g x) : f = g
       => exts p
+
+    \lemma contr-isTerm {R S : Ring} (c : Contr S) : Contr (RingHom R S) \cowith
+      | center => \new RingHom {
+        | func _ => c.center
+        | func-+ => c.contraction _
+        | func-ide => c.contraction _
+        | func-* => c.contraction _
+      }
+      | contraction f => exts $ \lam e => c.contraction _
 }
 
 \instance RingCat : Cat Ring
@@ -39,23 +57,23 @@
   | o {x y z : Ring} (g : RingHom y z) (f : RingHom x y) => \new RingHom {
     | func x => g (f x)
     | func-ide => pmap g f.func-ide *> g.func-ide
-    | func-+ x y => pmap g (f.func-+ x y) *> g.func-+ (f x) (f y)
-    | func-* x y => pmap g (f.func-* x y) *> g.func-* (f x) (f y)
+    | func-+ => pmap g f.func-+ *> g.func-+
+    | func-* => pmap g f.func-* *> g.func-*
   }
   | id-left => idp
   | id-right => idp
   | o-assoc => idp
-  | univalence => sip (\lam {X} {R} {S} (p1 : RingHom) _ => exts (p1.func-zro, p1.func-+, p1.func-ide, p1.func-*, natCoefUnique R S p1, AddGroup.negative-equality R S p1.func-zro p1.func-+))
+  | univalence => sip (\lam {X} {R} {S} (p1 : RingHom) _ => exts (p1.func-zro, \lam _ _ => p1.func-+, p1.func-ide, \lam _ _ => p1.func-*, natCoefUnique R S p1, AddGroup.negative-equality R S p1.func-zro p1.func-+))
   \where {
     \func id (M : Ring) : RingHom M M \cowith
       | func x => x
       | func-ide => idp
-      | func-+ _ _ => idp
-      | func-* _ _ => idp
+      | func-+ => idp
+      | func-* => idp
 
     \lemma natCoefUnique {X : \Set} (R S : Ring X) (h : RingHom R S (\lam x => x)) (n : Nat) : R.natCoef n = S.natCoef n \elim n
       | 0 => R.natCoefZero *> h.func-zro *> inv S.natCoefZero
-      | suc n => R.natCoefSuc n *> h.func-+ _ _ *> pmap2 (S.+) (natCoefUnique R S h n) h.func-ide *> inv (S.natCoefSuc n)
+      | suc n => R.natCoefSuc n *> h.func-+ *> pmap2 (S.+) (natCoefUnique R S h n) h.func-ide *> inv (S.natCoefSuc n)
   }
 
 \instance CRingCat : Cat CRing
@@ -75,6 +93,13 @@
       | Func f => func {f}
       | Func-id => idp
       | Func-o => idp
+      \where {
+        \func reflectsLimit {J : SmallPrecat} (H : Functor J CRingCat) : ReflectsLimit forgetful H
+          => (CRingBicat.createsLimits H (SetBicat.limit (Comp CRingCat.forgetful H))).3
+
+        \func preservesLimit {J : SmallPrecat} (H : Functor J CRingCat) : PreservesLimit forgetful H
+          => (CRingBicat.createsLimits H (SetBicat.limit (Comp CRingCat.forgetful H))).2
+      }
   }
 
 \instance CRingBicat : BicompleteCat
@@ -110,8 +135,8 @@
         | func => f.funcs
         | func-zro => f.func-op 0 nil
         | func-ide => f.func-op 1 nil
-        | func-+ x y => f.func-op 2 (x :: y :: nil)
-        | func-* x y => f.func-op 3 (x :: y :: nil)
+        | func-+ {x} {y} => f.func-op 2 (x :: y :: nil)
+        | func-* {x} {y} => f.func-op 3 (x :: y :: nil)
       }
       | Func-id => idp
       | Func-o => idp
@@ -126,9 +151,9 @@
           | func-op => \case \elim __ \with {
             | 0 => \lam _ => h.func-zro
             | 1 => \lam _ => h.func-ide
-            | 2 => \lam d => h.func-+ (d 0) (d 1)
-            | 3 => \lam d => h.func-* (d 0) (d 1)
-            | 4 => \lam d => h.func-negative (d 0)
+            | 2 => \lam d => h.func-+
+            | 3 => \lam d => h.func-*
+            | 4 => \lam d => h.func-negative
           }
           | func-rel => \case __
         }
@@ -197,9 +222,9 @@
             | func-op => \case \elim __ \with {
               | 0 => \lam _ => f.func-zro
               | 1 => \lam _ => f.func-ide
-              | 2 => \lam _ => f.func-+ _ _
-              | 3 => \lam _ => f.func-* _ _
-              | 4 => \lam _ => f.func-negative _
+              | 2 => \lam _ => f.func-+
+              | 3 => \lam _ => f.func-*
+              | 4 => \lam _ => f.func-negative
             }
             | func-rel => \case __
           }
@@ -207,6 +232,55 @@
           | Func-o => idp
       }
 
-    \sfunc createsLimits {J : Precat} (F : Functor J CRingCat) : CreatesLimit CRingCat.forgetful F
+    \sfunc createsLimits {J : SmallPrecat} (F : Functor J CRingCat) : CreatesLimit CRingCat.forgetful F
       => {?}
   }
+
+\func natMap {R : Semiring} : SemiringHom NatSemiring R \cowith
+  | func => natCoef
+  | func-+ {n m : Nat} : R.natCoef (n + m) = natCoef n + natCoef m \elim m {
+    | 0 => inv (pmap (natCoef n +) natCoefZero *> zro-right)
+    | suc m => natCoefSuc (n + m) *> pmap (`+ ide) func-+ *> +-assoc *> pmap (natCoef n +) (inv (natCoefSuc m))
+  }
+  | func-zro => natCoefZero
+  | func-ide => natCoefSuc 0 *> pmap (`+ ide) natCoefZero *> zro-left
+  | func-* {n m : Nat} : R.natCoef (n * m) = natCoef n * natCoef m \elim m {
+    | 0 => natCoefZero *> inv (pmap (natCoef n *) natCoefZero *> zro_*-right)
+    | suc m => func-+ *> pmap (`+ natCoef n) func-* *> inv (pmap (natCoef n *) (natCoefSuc m) *> ldistr *> pmap (natCoef n * natCoef m +) ide-right)
+  }
+
+\lemma natComm {R : Semiring} (n : Nat) (x : R) : natMap n * x = x * natMap n \elim n
+  | 0 => pmap (`* x) natCoefZero *> zro_*-left *> inv (pmap (x *) natCoefZero *> zro_*-right)
+  | suc n => pmap (`* x) (natCoefSuc n) *> rdistr *> pmap (natCoef n * x +) ide-left *> pmap (`+ x) (natComm n x) *> inv (pmap (x *) (natCoefSuc n) *> ldistr *> pmap (x * natCoef n +) ide-right)
+
+\func intMap {R : Ring} : RingHom IntRing R \cowith
+  | func => intCoef
+  | func-+ {x y : Int} : R.intCoef (x + y) = intCoef x + intCoef y \elim x, y {
+    | pos n, pos m => natMap.func-+
+    | pos n, neg (suc _ \as m) => intCoef_diff n m
+    | neg (suc _ \as n), pos m => intCoef_diff m n *> +-comm
+    | neg (suc _ \as n), neg (suc _ \as m) => pmap negative natMap.func-+ *> negative_+ *> +-comm
+  }
+  | func-ide => natMap.func-ide
+  | func-* {x y : Int} : R.intCoef (x * y) = intCoef x * intCoef y \elim x, y {
+    | pos n, pos m => natMap.func-*
+    | pos n, neg (suc _ \as m) => intCoef_neg _ *> pmap negative natMap.func-* *> inv negative_*-right
+    | neg (suc _ \as n), pos m => intCoef_neg _ *> pmap negative natMap.func-* *> inv negative_*-left
+    | neg (suc _ \as n), neg m => natMap.func-* *> inv (pmap (negative (natCoef n) *) (intCoef_neg m) *> negative_*)
+  }
+  \where {
+    \open AddGroup(negative_zro,negative_+)
+    \open Ring
+
+    \lemma intCoef_diff {R : Ring} (n m : Nat) : R.intCoef (n Nat.- m) = intCoef n - intCoef m \elim n, m
+      | 0, 0 => inv (pmap (natCoef 0 + negative __) natCoefZero *> pmap (natCoef 0 +) negative_zro *> zro-right)
+      | 0, suc _ \as m => inv (pmap (__ - natCoef m) natCoefZero *> zro-left)
+      | suc _ \as n, 0 => inv (pmap (natCoef n + negative __) natCoefZero *> pmap (natCoef n +) negative_zro *> zro-right)
+      | suc n, suc m => intCoef_diff n m *>
+      pmap (natCoef n +) (inv (pmap (ide +) negative_+ *> inv +-assoc *> pmap (`- natCoef m) negative-right *> zro-left)) *>
+      inv (pmap2 (__ + negative __) (natCoefSuc n) (natCoefSuc m) *> +-assoc)
+  }
+
+\lemma intComm {R : Ring} (n : Int) (x : R) : intMap n * x = x * intMap n \elim n
+  | pos n => natComm n x
+  | neg n => rewrite Ring.intCoef_neg (Ring.negative_*-left *> pmap negative (natComm n x) *> inv Ring.negative_*-right)

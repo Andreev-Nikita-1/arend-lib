@@ -50,6 +50,10 @@
   : pmap f (p <* q) = pmap f p <* pmap f q \elim p
   | idp => idp
 
+\func pmap2_*>-comm {A B C : \Type} (f : A -> B -> C) {a a' a'' : A} (p : a = a') (q : a' = a'') {b b' b'' : B} (s : b = b') (t : b' = b'')
+  : pmap2 f (p *> q) (s *> t) = pmap2 f p s *> pmap2 f q t \elim q, t
+  | idp, idp => idp
+
 \func inv_inv {A : \Type} {a a' : A} (p : a = a') : inv (inv p) = p
   | idp => idp
 
@@ -91,7 +95,14 @@
 \func pathOver {A : I -> \Type} {a : A left} {a' : A right} (p : coe A a right = a') : Path A a a'
   => *>.concat (idpOver A a) p
 
-\lemma pathInProp (A : I -> \Prop) (a : A left) (a' : A right) : Path A a a' => pathOver (Path.inProp (coe A a right) a')
+\lemma pathInProp (A : I -> \Prop) (a : A left) (a' : A right) : Path A a a'
+  => pathOver (Path.inProp (coe A a right) a')
+
+\lemma propPath {A : \Prop} {a b : A} : a = b
+  => Path.inProp a b
+
+\lemma setPath {A : \Set} {a b : A} {p q : a = b} : p = q
+  => propPath
 
 \func coe_path {A : \Type} {a1 a2 a3 a4 : A} (p : a2 = a1) (q : a2 = a3) (r : a3 = a4)
   : coe (\lam i => p @ i = r @ i) q right = inv p *> q *> r
@@ -139,6 +150,10 @@
   : transport (\lam y => B y -> C y) p f = g \elim p
   | idp => path (\lam i x => t x @ i)
 
+\func transport_depPi {A B : \Type} (C : A -> B -> \Type) {a a' : A} (p : a = a') (f : \Pi (b : B) -> C a b) (x : B)
+  : transport (\lam y => \Pi (b : B) -> C y b) p f x = transport (C __ x) p (f x) \elim p
+  | idp => idp
+
 \func transport_path-right {A : \Type} {a0 a b : A} (p : a = b) (q : a0 = a)
   : transport (a0 =) p q = q *> p
   | idp, idp => idp
@@ -149,9 +164,17 @@
 
 \func transport_path_pmap {A B : \Type} (f g : A -> B) {a a' : A} (p : a = a') (q : f a = g a) (s : f a' = g a') (h : q *> pmap g p = pmap f p *> s) : transport (\lam x => f x = g x) p q = s \elim p
   | idp => h *> idp_*> s
+  \where {
+    \func conv {A B : \Type} (f g : A -> B) {a a' : A} (p : a = a') (q : f a = g a) (s : f a' = g a') (h : transport (\lam x => f x = g x) p q = s) : q *> pmap g p = pmap f p *> s \elim p
+      | idp => h *> inv (idp_*> s)
+  }
 
 \func transport_path_pmap-right {A B : \Type} (b : B) (g : A -> B) {a a' : A} (p : a = a') (q : b = g a) (s : b = g a') (h : q *> pmap g p = s) : transport (\lam x => b = g x) p q = s \elim p
   | idp => h
+  \where {
+    \func conv {A B : \Type} (b : B) (g : A -> B) {a a' : A} (p : a = a') (q : b = g a) (s : b = g a') (h : transport (\lam x => b = g x) p q = s) : q *> pmap g p = s \elim p
+      | idp => h
+  }
 
 \func transport_inv_id {A : \Type} (B : A -> \Type) {a b : A} (p : a = b) (x : B a)
   : transport B (inv p) (transport B p x) = x \elim p
@@ -161,6 +184,10 @@
   : transport B p (transport B (inv p) x) = x \elim p
   | idp => idp
 
+\func transport-rotate {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') {x : B a} {y : B a'} (t : transport B p x = y)
+  : x = transport B (inv p) y \elim p
+  | idp => t
+
 \func transport_inv_func {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (g : B a' -> B a) (gf : \Pi (x : B a) -> g (transport B p x) = x) (b : B a')
   : transport B (inv p) b = g b \elim p
   | idp => inv (gf b)
@@ -169,3 +196,7 @@
   : coe (\lam i => \Sigma (a : A i) (B i a)) p j = (coe A p.1 j, coe (\lam i => B i (coe A p.1 i)) p.2 j)
   => coe (\lam k => coe (\lam i => \Sigma (a : A i) (B i a)) p (I.squeeze j k) =
                     (coe A p.1 (I.squeeze j k), coe (\lam i => B i (coe A p.1 i)) p.2 (I.squeeze j k))) idp right
+
+\func coe_pi {B C : I -> \Type} {f : B left -> C left}
+  : coe (\lam i => B i -> C i) f right = \lam x => coe C (f (coe2 B right x left)) right
+  => coe (\lam j => coe (\lam i => B i -> C i) f j = \lam x => coe C (f (coe2 B j x left)) j) idp right

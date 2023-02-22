@@ -9,7 +9,7 @@
 \import Paths
 \import Paths.Meta
 
-\func subPrecat \plevels obj >= hom {C : Precat \levels (obj,hom) _} {X : \hType obj} (f : X -> C) : Precat X \cowith
+\func subPrecat {C : Precat} {X : \hType obj} (f : X -> C) : Precat X \cowith
   | Hom x y => Hom (f x) (f y)
   | id x => id (f x)
   | o h g => o h g
@@ -17,7 +17,7 @@
   | id-right => id-right
   | o-assoc => o-assoc
   \where {
-    \func embedding {C : Precat} {X : \hType (\suc \lp)} (f : X -> C) : FullyFaithfulFunctor (subPrecat f) C f \cowith
+    \func embedding {C : Precat} {X : \hType obj} (f : X -> C) : FullyFaithfulFunctor (subPrecat f) C f \cowith
       | Func h => h
       | Func-id => idp
       | Func-o => idp
@@ -33,10 +33,10 @@
       | Func-o => rewrite G.Func-o $ later (rewrite (p.f_inv, id-left) $ pmap (`∘ _) (inv o-assoc) *> o-assoc) *> pmap (_ ∘) (pmap (`∘ _) o-assoc *> o-assoc) *> inv o-assoc
   }
 
-\func subCat \plevels obj >= hom {C : Cat \levels (obj,hom) _} {X : \hType obj} (e : Embedding {X} {C}) : Cat \cowith
+\func subCat {C : Cat} {X : \hType obj} (e : Embedding {X} {C}) : Cat \cowith
   | Precat => subPrecat e
-  | univalence (j : Iso) =>
-    \have (t,r) => univalence (\new Iso j.f j.inv j.inv_f j.f_inv)
+  | univalence => Cat.makeUnivalence $ later $ \lam (j : Iso) =>
+    \have (t,r) => Cat.univalenceToTransport (\new Iso j.f j.inv j.inv_f j.f_inv)
     \in (Retraction.sec {e.isEmb j.dom j.cod} t, pmap (transport (Hom (e j.dom)) __ (id (e j.dom))) (Retraction.f_sec {e.isEmb j.dom j.cod} t) *> r)
 
 \class ReflectiveSubPrecat \extends FullyFaithfulFunctor, RightAdjoint {
@@ -78,8 +78,6 @@
     rewrite o-assoc,
     pmap (_ ∘) (c.coneCoh h)
   }
-  | isLimit z => \new QEquiv {
-    | ret c' => I.isReflective.ret (Equiv.ret {c.isLimit (I z)} (Cone.map I.op {J.op} c'))
-    | ret_f h => inv $ Equiv.adjoint $ Equiv.adjoint {c.isLimit (I z)} $ exts $ \lam j => o-assoc *> inv (Func-o *> pmap (_ ∘) I.inverse-right)
-    | f_sec c' => exts $ \lam j => I.isFullyFaithful.isInj $ Func-o *> pmap (_ ∘) I.inverse-right *> inv o-assoc *> pmap (`∘ _) (I.isReflective.f_ret _) *> path (\lam i => coneMap {Equiv.f_ret {c.isLimit (I z)} (Cone.map I.op {J.op} c') i} j)
-  }
+  | limMap {z} c' => I.isReflective.ret (c.limMap (Cone.map I.op {J.op} c'))
+  | limBeta c' j => I.isFullyFaithful.isInj $ Func-o *> pmap (_ ∘) I.inverse-right *> inv o-assoc *> pmap (`∘ _) (I.isReflective.f_ret _) *> c.limBeta (Cone.map I.op {J.op} c') j
+  | limUnique {z} {f} {g} p => inv (I.isReflective.ret_f f) *> pmap I.isReflective.ret (c.limUnique $ \lam j => o-assoc *> rewriteF I.inverse-right (inv I.Func-o *> pmap I.Func (p j) *> I.Func-o) *> inv o-assoc) *> I.isReflective.ret_f g
