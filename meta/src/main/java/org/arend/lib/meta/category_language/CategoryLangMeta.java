@@ -1,4 +1,4 @@
-package org.arend.lib.meta;
+package org.arend.lib.meta.category_language;
 
 import org.arend.ext.concrete.ConcreteClause;
 import org.arend.ext.concrete.ConcreteFactory;
@@ -667,7 +667,7 @@ public class CategoryLangMeta extends BaseMetaDefinition {
 
     public boolean compare(CoreExpression value, CoreExpression element) {
         if (value == null || element == null) return value == element;
-        return typechecker != null ? Utils.safeCompare(typechecker, value, element, CMP.EQ, marker, false, true) : value.compare(element, CMP.EQ);
+        return typechecker != null ? Utils.safeCompare(typechecker, value, element, CMP.EQ, marker, false, true, true) : value.compare(element, CMP.EQ);
     }
 
     public CategoryLangMeta(StdExtension ext) {

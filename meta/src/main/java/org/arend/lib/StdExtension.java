@@ -19,7 +19,8 @@ import org.arend.lib.key.ReflexivityKey;
 import org.arend.lib.key.TransitivityKey;
 import org.arend.lib.level.StdLevelProver;
 import org.arend.lib.meta.*;
-import org.arend.lib.meta.CategoryLangMeta;
+import org.arend.lib.meta.category_language.CategoryLangMeta;
+import org.arend.lib.meta.category_language.CategoryLangMeta1;
 import org.arend.lib.meta.cong.CongruenceMeta;
 import org.arend.lib.meta.debug.PrintMeta;
 import org.arend.lib.meta.debug.RandomMeta;
@@ -78,6 +79,7 @@ public class StdExtension implements ArendExtension {
   public final SimpCoeMeta simpCoeFMeta = new SimpCoeMeta(this, true);
   public final SIPMeta sipMeta = new SIPMeta(this);
   public final CategoryLangMeta categoryLangMeta = new CategoryLangMeta(this);
+  public final CategoryLangMeta1 categoryLangMeta1 = new CategoryLangMeta1(this);
   public CasesMeta casesMeta;
   public MetaRef constructorMetaRef;
 
@@ -132,6 +134,9 @@ public class StdExtension implements ArendExtension {
     provider.load(categoryLangMeta);
     provider.load(categoryLangMeta.cfp);
     provider.load(categoryLangMeta.ccfp);
+
+    provider.load(categoryLangMeta1);
+    provider.load(categoryLangMeta1.fp);
 
     provider.load(linearSolverMeta);
 
@@ -355,6 +360,10 @@ public class StdExtension implements ArendExtension {
     contributor.declare(category, new LongName("my_meta"),
             "kek",
             Precedence.DEFAULT, categoryLangMeta);
+    contributor.declare(category, new LongName("my_meta1"),
+            "kek",
+            Precedence.DEFAULT, categoryLangMeta1);
+
   }
 
   @Override

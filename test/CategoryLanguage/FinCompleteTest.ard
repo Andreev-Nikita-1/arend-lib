@@ -1,0 +1,202 @@
+\import Category.Meta
+\import Paths
+
+\func test-e=e' => \let q =>
+  my_meta1 (\lam
+  (A : \Type)
+  (star : \Sigma A A -> A)
+  (e e' : A)
+  (h1 : \Pi(x : A) -> star (x, e) = x)
+  (h2 : \Pi(x : A) -> star (e', x) = x)
+  => inv (h1 e') *> h2 e) \in 0
+
+\func test-subst => 0 \where {
+  \func test-1 => \let q =>
+    my_meta1 (\lam
+    (A B : \Type)
+    (t : B -> A)
+    (f g : A -> \Prop)
+    (h : \Pi(x : A) -> f x -> g x)
+    => \lam (y : B) (q : f (t y)) => h (t y) q) \in 0
+
+  \func test-2 => \let q =>
+    my_meta1 (\lam
+    (A B : \Type)
+    (s : \Sigma A A -> A)
+    (e : A)
+    (t : B -> A)
+    (f : A -> \Prop)
+    (h : \Pi(x : A) -> f x -> (s (x, e) = x))
+    => \lam (y : B) (q : f (t y)) => h (t y) q) \in 0
+}
+
+\func test-proj => 0 \where {
+  \func test-1 => \let q =>
+    my_meta1 (\lam
+    (A : \Type)
+    (f f' g : A -> \Prop)
+    (h : \Pi(x : A) -> g x -> \Sigma (f x) (f' x))
+    => \lam (x : A) (q : g x) => (h x q).1) \in 0
+
+  \func test-2 => \let q =>
+    my_meta1 (\lam
+    (A : \Type)
+    (f f' g : A -> \Prop)
+    (h : \Pi(x : A) -> g x -> \Sigma (f x) (f' x))
+    => \lam (x : A) (q : g x) => (h x q).2) \in 0
+
+  \func test-of-3-1 => \let q =>
+    my_meta1 (\lam
+    (A : \Type)
+    (f f' f'' g : A -> \Prop)
+    (h : \Pi(x : A) -> g x -> \Sigma (f x) (f' x) (f'' x))
+    => \lam (x : A) (q : g x) => (h x q).1) \in 0
+
+  \func test-of-3-2 => \let q =>
+    my_meta1 (\lam
+    (A : \Type)
+    (f f' f'' g : A -> \Prop)
+    (h : \Pi(x : A) -> g x -> \Sigma (f x) (f' x) (f'' x))
+    => \lam (x : A) (q : g x) => (h x q).2) \in 0
+
+  \func test-of-3-3 => \let q =>
+    my_meta1 (\lam
+    (A : \Type)
+    (f f' f'' g : A -> \Prop)
+    (h : \Pi(x : A) -> g x -> \Sigma (f x) (f' x) (f'' x))
+    => \lam (x : A) (q : g x) => (h x q).3) \in 0
+}
+
+\func test-tuple => 0 \where {
+  \func test-1 => \let q =>
+    my_meta1 (\lam
+    (A : \Type)
+    (f f' g : A -> \Prop)
+    (h : \Pi(x : A) -> g x -> f x)
+    (h' : \Pi(x : A) -> g x -> f' x)
+    => \lam (x : A) (q : g x) => (h x q, h' x q)) \in 0
+
+  \func test-2 => \let q =>
+    my_meta1 (\lam
+    (A : \Type)
+    (f f' g : A -> \Prop)
+    (h : \Pi(x : A) -> g x -> f x)
+    (h' : \Pi(x : A) -> g x -> f' x)
+    => \lam (x : A) (q : g x) => (q, h x q, h' x q)) \in 0
+}
+
+\func test-incomplete-domain-or-hyp => 0 \where {
+  \func test-1 => \let q =>
+    my_meta1 (\lam
+    (A : \Type)
+    (c : A)
+    (f g : A -> \Prop)
+    (h : \Pi(x : A) -> g x -> f x)
+    => \lam (q : g c) => (q, h c q)) \in 0
+
+  \func test-2 => \let q =>
+    my_meta1 (\lam
+    (A B : \Type)
+    (c : A)
+    (t : A -> B)
+    (f : A -> \Prop)
+    (g g' : B -> \Prop)
+    (h : \Pi(x : A) -> f x -> g (t x))
+    (h' : \Pi(y : B) -> g y -> g' y)
+    => \lam (q : f c) => (q, h' (t c) (h c q))) \in 0
+
+  \func test-3 => \let q =>
+    my_meta1 (\lam
+    (A : \Type)
+    (c : A)
+    (f : A -> \Prop)
+    (h : \Pi(x : A) -> f x)
+    => h c) \in 0
+
+  \func test-4 => \let q =>
+    my_meta1 (\lam
+    (A B : \Type)
+    (t : B -> A)
+    (f : A -> \Prop)
+    (h : \Pi(x : A) -> f x)
+    => \lam (y : B) => h (t y)) \in 0
+
+  \func test-5 => \let q =>
+    my_meta1 (\lam
+    (A : \Type)
+    (f f' : A -> \Prop)
+    (c : A)
+    (h : \Pi(x : A) -> f x -> f' x)
+    (h' : f c)
+    => h c h') \in 0
+}
+
+\func test-equalities => 0 \where {
+  \func test-pmap => \let q =>
+    my_meta1 (\lam
+    (A B C : \Type)
+    (t1 t2 : A -> B)
+    (fun : B -> C)
+    (h : \Pi(x : A) -> t1 x = t2 x)
+    => \lam (x : A) => pmap fun (h x)) \in 0
+
+  \func test-concat => \let q =>
+    my_meta1 (\lam
+    (A B : \Type)
+    (t1 t2 t3 : A -> B)
+    (h : \Pi(x : A) -> t1 x = t2 x)
+    (h' : \Pi(x : A) -> t2 x = t3 x)
+    => \lam (x : A) => h x *> h' x) \in 0
+
+  \func test-concat-1 => \let q =>
+    my_meta1 (\lam
+    (A B : \Type)
+    (t1 t2 t3 : A -> B)
+    (f : A -> \Prop)
+    (h : \Pi(x : A) -> f x -> t1 x = t2 x)
+    (h' : \Pi(x : A) -> t2 x = t3 x)
+    => \lam (x : A) (p : f x) => h x p *> h' x) \in 0
+
+  \func test-concat-2 => \let q =>
+    my_meta1 (\lam
+    (A B C : \Type)
+    (t1 t2 t3 : A -> B)
+    (s : C -> A)
+    (f : A -> \Prop)
+    (h : \Pi(x : A) -> f x -> t1 x = t2 x)
+    (h' : \Pi(x : A) -> t2 x = t3 x)
+    (hf : \Pi(c : C) -> f (s c))
+    => \lam (c : C) => h (s c) (hf c) *> h' (s c)) \in 0
+
+  \func test-idp => \let q =>
+    my_meta1 (\lam
+    (A B : \Type)
+    (s : A -> B)
+    (bin : \Sigma A B -> \Prop)
+    (h : \Pi(x : \Sigma A A) -> x.1 = x.2 -> bin (x.1, s x.2))
+    => \lam (x : A) => h (x, x) idp) \in 0
+
+  \func test-transport => \let q =>
+    my_meta1 (\lam
+    (A B : \Type)
+    (s s' : A -> B)
+    (f : B -> \Prop)
+    (h : \Pi(x : A) -> f (s x))
+    (eq : \Pi(x : A) -> s x = s' x)
+    => \lam (x : A) => transport (\lam t => f t) (eq x) (h x)) \in 0
+
+  \func test-transport-1 => \let q =>
+    my_meta1 (\lam
+    (A B C : \Type)
+    (s s' : A -> B)
+    (g : B -> C)
+    (f : B -> \Prop)
+    (f' : C -> \Prop)
+    (h : \Pi(x : A) -> f (s x))
+    (h' : \Pi(y : B) -> f' (g y))
+    (eq : \Pi(x : A) -> s x = s' x)
+    => \lam (x : A) => transport (\lam (t : B) => \Sigma (f t) (f' (g t))) (eq x) (h x, h' (s x))) \in 0
+}
+
+
+

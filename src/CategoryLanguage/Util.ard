@@ -1,0 +1,45 @@
+\import Category
+\import Category.Limit
+\import CategoryLanguage.FinitelyComplete
+\import Paths
+\import Paths.Meta
+
+\func sigma : \Sigma => ()
+
+\func wrapType (A : \Type) => A
+
+\func type-is-set {TP : \Set} {a : Type TP} (p : a = a) : p = idp => Path.inProp p idp
+
+\func rewriteFunc {A : \Type} {a b : A} {B : A -> \Type} (p : a = b) (x : B b) : B a => rewrite p x
+
+\func Ih {C : FinCompletePrecat} {TP : \Set} (TyF : TP -> C) (D C : Type TP) => Hom (IT TyF D) (IT TyF C)
+
+\func Isub {C : FinCompletePrecat} {TP : \Set} (TyF : TP -> C) (A : Type TP) => subobj (IT TyF A)
+
+\func IsubInc {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
+              (TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
+              {FP : Type TP -> \Set} (FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom))
+              {dom : Type TP} (hyp form : Formula P FP dom) => subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form)
+
+\func pullback-of-mono-is-mono {C : FinCompletePrecat} {A B B' : C} (f : Hom B A) (f' : Hom B' A)
+                               (mono_f : Mono f) : Mono (Pullback.pbProj2 {C.pullback f f'}) =>
+  \let pb => C.pullback f f' \in
+    \new Mono (Pullback.pbProj2 {pb}) (\lam {_} {h1} {h2} x => Pullback.pbEta {pb}
+        (mono_f.isMono ( \let xx => Pullback.pbCoh {pb} \in inv o-assoc
+          *> rewrite xx (o-assoc *> pmap (f' `o`) x *> inv o-assoc *> pmap (`o` h2) (inv xx)) *> o-assoc)) x)
+
+\func subobj {C : Precat} (A : C) => \Sigma (sub : C) (f : Hom sub A) (Mono f)
+
+\func subobj-inclusion {C : Precat} {A : C} (s1 s2 : subobj A) =>
+  \Sigma (f : Hom s1.1 s2.1) (s2.2 `o` f = s1.2)
+
+\func subobj-inclusion-transitivity {C : Precat} {A : C} (s1 s2 s3 : subobj A)
+                                    (in1 : subobj-inclusion s1 s2) (in2 : subobj-inclusion s2 s3) : subobj-inclusion s1 s3 =>
+  (in2.1 `o` in1.1, inv o-assoc *> pmap (`o`in1.1) in2.2 *> in1.2)
+
+\func pullback-of-subobj {C : FinCompletePrecat} {A B : C} (g : Hom B A)
+                         (so : subobj A) : subobj B =>
+  \let pb => C.pullback so.2 g \in (pb, Pullback.pbProj2 {pb}, pullback-of-mono-is-mono so.2 g so.3)
+
+\func id-inclusion {C : FinCompletePrecat} {A : C} (s : subobj A) =>
+  subobj-inclusion (A, id A, \new Mono (id A) (inv id-left *> __ *> id-left)) s

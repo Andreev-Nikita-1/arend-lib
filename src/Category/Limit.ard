@@ -486,7 +486,6 @@
       | 1 => g
     }
 
-
   \func prodMap {x y x' y' : Ob} (f : Hom x y) (f' : Hom x' y') : Hom (Bprod x x') (Bprod y y') =>
     pair (f ∘ proj1) (f' ∘ proj2)
 
@@ -597,6 +596,37 @@
     }
     | tupleEq f => pbEta (f 0) (f 1)
   }
+
+  \sfunc equalizer {x y : Ob} (f g : Hom x y) : Equalizer f g =>
+    \let pb => pullback (pair (id x) f) (pair (id x) g)
+         | xx => Pullback.pbCoh {pb}
+         | yy  => rewrite (beta2, beta2)  (o-assoc *> pmap (proj2 `o`) xx *> inv o-assoc)
+         | zz  => rewrite (beta1, beta1)  (o-assoc *> pmap (proj1 `o`) xx *> inv o-assoc)
+         | tt => inv id-left *> zz *> id-left
+    \in \new Equalizer {
+      | apex => pb
+      | eql => Pullback.pbProj1 {pb}
+      | equal => unfold (
+        yy *> pmap (g `o`) (inv tt))
+      | isEqualizer x1 => \new Equiv {
+        | ret a => Pullback.pbMap {pb} a.1 a.1 (pair-comp *> rewrite a.2 idp *> inv pair-comp)
+        | ret_f a => Pullback.pbEta {pb} (Pullback.pbBeta1 {pb}) (Pullback.pbBeta2 {pb} *> pmap (`o` a) tt)
+        | sec a => Pullback.pbMap {pb} a.1 a.1 (pair-comp *> rewrite a.2 idp *> inv pair-comp)
+        | f_sec a => ext (Pullback.pbBeta1 {pb})
+      }
+    }
+}
+
+\class Image {C : Precat} {X Y : C} (f : Hom X Y) {
+  | im : \Sigma (sub : C) (h : Hom sub Y) (is_Mono : Mono h)
+  | im2 : Hom X im.1
+  | im-comm : im.2 `o` im2 = f
+  | im-minimal : \Pi (sub' : C) (h : Hom sub' Y) (_ : Mono h) (h2 : Hom X sub') (_ : h `o` h2 = f)
+  -> \Sigma (g : Hom im.1 sub') (_ : Mono g) (h `o` g = im.2)
+}
+
+\class RegularPrecat \extends FinCompletePrecat {
+  | image {X Y : Ob} {f : Hom X Y} : Image f
 }
 
 \class CompletePrecat \extends FinCompletePrecat {
