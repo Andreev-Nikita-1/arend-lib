@@ -1,0 +1,553 @@
+\import Category
+\import Category.Adjoint
+\import Category.Functor
+\import Category.Limit
+\import CategoryLanguage.Coherent
+\import CategoryLanguage.Regular (Image, RegularPrecat, image, image-stability, image-subobj)
+\import CategoryLanguage.Util
+\import Equiv (Equiv)
+\import Meta
+\import Paths
+\import Paths.Meta
+
+\class HeytingPrecat \extends CoherentPrecat {
+  | r-adj {X Y : Precat.Ob} (f : Hom X Y) : RightAdjoint {
+    | C => subobj-cat X
+    | D => subobj-cat Y
+    | LAdj => pullback-functor f
+  }
+
+  \default bcoprod-stability {A B : Precat.Ob} {f : Hom A B} {so so' : subobj-cat B} {so1 so1' : subobj-cat A}
+           (pb : Pullback so.2 f so1.1 {
+             | pbProj2 => so1.2
+           }) (pb' : Pullback so'.2 f so1'.1 {
+    | pbProj2 => so1'.2
+  }) =>
+             \let f*so => pullback-functor f so | f*so' => pullback-functor f so'
+                  | so+so' => bcoprod {subobj-cat-with-coproducts B} so so'
+                  | f*-sum => pullback-functor f (Bcoprod.apex {so+so'})
+                  | sum-f* => bcoprod {subobj-cat-with-coproducts A} so1 so1'
+                  | f*inl => subobj-inclusion-transitivity _ f*so f*-sum (pullback-def-to-inclusions pb).1
+                      (Functor.Func {pullback-functor f} (Bcoprod.inl {so+so'}))
+                  | f*inr => subobj-inclusion-transitivity _ f*so' f*-sum (pullback-def-to-inclusions pb').1
+                      (Functor.Func {pullback-functor f} (Bcoprod.inr {so+so'}))
+                  | radj-inl => RightAdjoint.isAdjoint {r-adj f}
+                      (subobj-inclusion-transitivity f*so _ _ (pullback-def-to-inclusions pb).2 (Bcoprod.inl {sum-f*}))
+                  | radj-inr => RightAdjoint.isAdjoint {r-adj f}
+                      (subobj-inclusion-transitivity f*so' _ _ (pullback-def-to-inclusions pb').2 (Bcoprod.inr {sum-f*}))
+             \in inclusions-to-pullback-def (Bcoprod.map {sum-f*} {f*-sum} f*inl f*inr,
+                                             (Equiv.sec {RightAdjoint.isAdjoint {r-adj f}})
+                                                 (Bcoprod.map {so+so'} radj-inl radj-inr))
+
+  \default initial-stability {A B : Precat.Ob} {f : Hom A B} =>
+             \let iA => initial {subobj-cat-with-coproducts A} | iB => initial {subobj-cat-with-coproducts B}
+             \in inclusions-to-pullback-def (Initial.map {iA} {pullback-of-subobj f iB},
+                                             (Equiv.sec {RightAdjoint.isAdjoint {r-adj f}}) (Initial.map {iB}))
+
+  \func exists-functor {A B : Precat.Ob} (f : Hom A B) : Functor (subobj-cat A) (subobj-cat B) \cowith
+    | F a => image-subobj (image (f `o` a.2))
+    | Func {x} {y} h =>
+      \let im1 => image (f `o` x.2) | im2 => image (f `o` y.2)
+      \in Image.map {im1} (Image.in {im2}) (Image.in-mono {im2}) (Image.im2 {im2} `o` h.1)
+          (inv o-assoc *> rewrite (Image.im-comm {im2}, inv h.2) o-assoc)
+    | Func-id {x} => \let im => image (f `o` x.2) \in hom-unique (image-subobj im) (image-subobj im) _ _
+    | Func-o {x}{y}{z}{g}{h} => hom-unique (image-subobj (image (f `o` x.2))) (image-subobj (image (f `o` z.2))) _ _
+
+  \func l-adj{X Y : Precat.Ob} (f : Hom X Y)
+    : \let pb-func => pullback-functor f \in RightAdjoint {
+    | C => subobj-cat Y
+    | D => subobj-cat X
+    | F => pb-func
+    | Func => Func {pb-func}
+    | Func-id => Func-id {pb-func}
+    | Func-o => Func-o {pb-func}
+    | LAdj => exists-functor f
+  } => \new RightAdjoint {
+    | eta => \new NatTrans {
+      | trans x =>
+        \let pb => pullback (image-subobj (image (f `o` x.2))).2 f
+        \in ((Pullback.pbMap {pb}) Image.im2 x.2 Image.im-comm, Pullback.pbBeta2)
+      | natural {x}{y} h => hom-unique x (pullback-of-subobj f (image-subobj (image (f `o` y.2)))) _ _
+    }
+    | isAdjoint {x}{y} => \let pb => pullback y.2 f | im => image (f `o` x.2) \in \new Equiv {
+      | ret h => Image.map y.2 y.3 (Pullback.pbProj1 {pb} `o` h.1) (inv o-assoc *> rewrite (Pullback.pbCoh {pb}, inv h.2) o-assoc)
+      | ret_f h => hom-unique (exists-functor f x) y _ _
+      | sec h => Image.map y.2 y.3 (Pullback.pbProj1 {pb} `o` h.1) (inv o-assoc *> rewrite (Pullback.pbCoh {pb}, inv h.2) o-assoc)
+      | f_sec h => hom-unique x (pullback-functor f y) _ _
+    }
+  }
+}
+
+\func beck-chevalley-condition {Cat : HeytingPrecat} {P A B C : Cat} (h : Hom P A) (f : Hom A C) (k : Hom P B) (g : Hom B C)
+                               (is-pb : Pullback g f P k h) (so : subobj A)
+  : bi-inclusion (Cat.r-adj k (pullback-of-subobj h so)) (pullback-of-subobj g (Cat.r-adj f so)) =>
+  (Equiv.f {(RightAdjoint.isAdjoint {Cat.l-adj g}) {Cat.r-adj k (pullback-functor h so)}}
+       (Equiv.f {(RightAdjoint.isAdjoint {Cat.r-adj f}) {Cat.exists-functor g (Cat.r-adj k (pullback-functor h so))}}
+           (subobj-inclusion-transitivity
+               (pullback-functor f (Cat.exists-functor g (Cat.r-adj k (pullback-functor h so))))
+               (Cat.exists-functor h (pullback-functor k (Cat.r-adj k (pullback-functor h so)))) _
+               (beck-chevalley-lemma h f k g is-pb (Cat.r-adj k (pullback-functor h so))).2
+               (Equiv.sec {(RightAdjoint.isAdjoint {Cat.l-adj h}) {pullback-functor k (Cat.r-adj k (pullback-functor h so))}}
+                   (Equiv.sec {(RightAdjoint.isAdjoint {Cat.r-adj k}) {Cat.r-adj k (pullback-functor h so)} {pullback-functor h so}}
+                       (id _, id-right))))),
+   Equiv.f {(RightAdjoint.isAdjoint {Cat.r-adj k}) {pullback-of-subobj g (Cat.r-adj f so)}}
+       (Equiv.f {(RightAdjoint.isAdjoint {Cat.l-adj h}) {pullback-of-subobj k (pullback-of-subobj g (Cat.r-adj f so))}}
+           (subobj-inclusion-transitivity (Cat.exists-functor h (pullback-functor k (pullback-functor g (Cat.r-adj f so))))
+               (pullback-functor f (Cat.exists-functor g (pullback-functor g (Cat.r-adj f so)))) _
+               (beck-chevalley-lemma h f k g is-pb (pullback-of-subobj g (Cat.r-adj f so))).1
+               (Equiv.sec {(RightAdjoint.isAdjoint {Cat.r-adj f}) {Cat.exists-functor g (pullback-functor g (Cat.r-adj f so))}}
+                   (Equiv.sec {(RightAdjoint.isAdjoint {Cat.l-adj g}) {pullback-functor g (Cat.r-adj f so)}}
+                       (id _, id-right)))))
+  ) \where {
+  \func beck-chevalley-lemma {Cat : HeytingPrecat} {P A B C : Cat} (h : Hom P A) (f : Hom A C) (k : Hom P B) (g : Hom B C)
+                             (is-pb : Pullback g f P k h) (so : subobj B)
+    : bi-inclusion (Cat.exists-functor h (pullback-of-subobj k so)) (pullback-of-subobj f (Cat.exists-functor g so)) =>
+    pullback-def-to-inclusions {_}{_}{_}{_} {Cat.exists-functor h (pullback-of-subobj k so)}{Cat.exists-functor g so}
+        (image-stability (g `o` so.2) f (\let pb-k => pullback so.2 k \in \new Pullback {
+          | apex => pb-k
+          | pbProj1 => Pullback.pbProj1 {pb-k}
+          | pbProj2 => h `o` Pullback.pbProj2 {pb-k}
+          | pbCoh => rewriteEq (Pullback.pbCoh {pb-k}, is-pb.pbCoh) o-assoc
+          | pbMap p1 p2 e => Pullback.pbMap {pb-k} p1 (is-pb.pbMap (so.2 `o` p1) p2 (inv o-assoc *> e)) (inv Pullback.pbBeta1)
+          | pbBeta1 => Pullback.pbBeta1
+          | pbBeta2 {_}{p1}{p2}{c} => o-assoc *> pmap (h `o`) Pullback.pbBeta2 *> (Pullback.pbBeta2 {is-pb}) {_} {so.2 Cat.∘ p1} {p2} {inv Cat.o-assoc *> c}
+          | pbEta e s => Pullback.pbEta e (Pullback.pbEta (inv o-assoc
+            *> rewriteI (Pullback.pbCoh {pb-k}) (rewriteEq (e, Pullback.pbCoh {pb-k}) idp) *> o-assoc) (inv o-assoc *> s *> o-assoc))
+        }) (image (g `o` so.2)) (image (h `o` Pullback.pbProj2 {pullback so.2 k}))).2
+}
+
+\data Formula {TP : \Set} (P : Type TP -> Type TP -> \Set) (FP : Type TP -> \Set) (dom : Type TP)
+  | Conj (Formula P FP dom) (Formula P FP dom)
+  | Eq {T : Type TP} (Term P dom T) (Term P dom T)
+  | FParam {dom' : Type TP} (FP dom') (Term P dom dom')
+  | FTrue
+  | Exists {dom' : Type TP} (Formula P FP (Prod dom' dom))
+  | FFalse
+  | Disj (Formula P FP dom) (Formula P FP dom)
+  | Impl (Formula P FP dom) (Formula P FP dom)
+  | Forall {dom' : Type TP} (Formula P FP (Prod dom' dom))
+
+\func IF {C : HeytingPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
+         (TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
+         {FP : Type TP -> \Set} (FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom))
+         {dom : Type TP} (form : Formula P FP dom) : subobj (IT TyF dom) \elim form
+  | Eq t t1 => \let e => C.equalizer (I TyF TeF t) (I TyF TeF t1) \in (e, Equalizer.eql {e}, \new Mono (Equalizer.eql {e}) (Equalizer.eqMono {e}))
+  | Conj form1 form2 =>
+    \let (sub, h, m) => IF TyF TeF FF form2
+         | (sub1, h1, m1) => pullback-of-subobj h (IF TyF TeF FF form1) \in (sub1, h `o` h1, \new Mono {
+      | isMono p => Mono.isMono {m1} (Mono.isMono {m} (inv o-assoc *> p *> o-assoc))
+    })
+  | FParam {dom'} x t => pullback-of-subobj (I TyF TeF t) (FF dom' x)
+  | FTrue => (_, id _, \new Mono (id _) (inv id-left *> __ *> id-left))
+  | Exists form => image-subobj (C.image (C.proj2 `o` (IF TyF TeF FF form).2))
+  | FFalse => PrecatWithFiniteCoproducts.initial {C.subobj-cat-with-coproducts (IT TyF dom)}
+  | Disj f1 f2 => PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts (IT TyF dom)} (IF TyF TeF FF f1) (IF TyF TeF FF f2)
+  | Impl form1 form2 => RightAdjoint.F {HeytingPrecat.r-adj (IF TyF TeF FF form1).2}
+      (pullback-of-subobj (IF TyF TeF FF form1).2 (IF TyF TeF FF form2))
+  | Forall form => RightAdjoint.F {HeytingPrecat.r-adj C.proj2} (IF TyF TeF FF form)
+
+\func substF {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set} {dom dom' : Type TP}
+             (form : Formula P FP dom) (term : Term P dom' dom) : Formula P FP dom' \elim form
+  | Conj form1 form2 => Conj (substF form1 term) (substF form2 term)
+  | Eq t t1 => Eq (subst t term) (subst t1 term)
+  | FParam f t => FParam f (subst t term)
+  | FTrue => FTrue
+  | Exists {dom''} form => Exists (substF form (Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))))
+  | FFalse => FFalse
+  | Disj form1 form2 => Disj (substF form1 term) (substF form2 term)
+  | Impl form1 form2 => Impl (substF form1 term) (substF form2 term)
+  | Forall form => Forall (substF form (Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))))
+
+\func lemma-substF-subobjects  {C : HeytingPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
+                               {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
+                               {FP : Type TP -> \Set} {FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
+                               {dom dom' : Type TP} (form : Formula P FP dom) (term : Term P dom' dom) =>
+  (IF TyF TeF FF (substF form term), pullback-of-subobj (I TyF TeF term) (IF TyF TeF FF form))
+
+\func lemma-substF {C : HeytingPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
+                   {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
+                   {FP : Type TP -> \Set} {FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
+                   {dom dom' : Type TP} (form : Formula P FP dom) (term : Term P dom' dom)
+  : bi-inclusion (IF TyF TeF FF (substF form term)) (pullback-of-subobj (I TyF TeF term) (IF TyF TeF FF form)) \elim form
+  | Conj form1 form2 =>
+    \let h => I TyF TeF term
+         | ((l1, q1), (r1, s1)) => lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form1 term
+         | ((l2, q2), (r2, s2)) => lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form2 term
+         | (sub1, in1, mon1) => IF TyF TeF FF form1
+         | (sub2, in2, mon2) => IF TyF TeF FF form2
+         | pb => C.pullback in1 in2
+         | pb1 => C.pullback in1 h
+         | pb2 => C.pullback in2 h
+         | pb' => C.pullback (Pullback.pbProj2 {pb1}) (Pullback.pbProj2 {pb2})
+         | pb-of-pb => C.pullback (in2 `o` Pullback.pbProj2 {pb}) h
+         | (sub1', in1', mon1') => IF TyF TeF FF (substF form1 term)
+         | (sub2', in2', mon2') => IF TyF TeF FF (substF form2 term)
+         | pb'' => C.pullback in1' in2' \in (
+      \let
+        x1 => Pullback.pbProj1 {pb1} `o` Pullback.pbProj1 {pb'}
+        | x2 => Pullback.pbProj1 {pb2} `o` Pullback.pbProj2 {pb'}
+        | p1 => pmap (`o` Pullback.pbProj1 {pb'}) (Pullback.pbCoh {pb1})
+        | p2 => pmap (h `o`) (Pullback.pbCoh {pb'})
+        | p3 => pmap (`o` Pullback.pbProj2 {pb'}) (Pullback.pbCoh {pb2})
+        | p4 => p1 *> o-assoc *> p2 *> inv o-assoc *> inv p3
+        | x3 => Pullback.pbMap {pb} x1 x2 (inv o-assoc *> p4 *> o-assoc)
+        | p5 => pmap (in1 `o`) ((Pullback.pbBeta1 {pb}) {pb'} {x1} {x2} {inv o-assoc *> p4 *> o-assoc})
+        | p6 => o-assoc *> p5 *> inv o-assoc *> p1 *> o-assoc
+        | x4 => Pullback.pbMap {pb-of-pb} x3 (Pullback.pbProj2 {pb1} `o` Pullback.pbProj1 {pb'}) (rewriteI (Pullback.pbCoh {pb}) p6)
+        | p7 => inv o-assoc *> pmap (`o` Pullback.pbProj1 {pb''}) q1 *> Pullback.pbCoh {pb''}
+        | p8 => inv o-assoc *> pmap (`o` Pullback.pbProj2 {pb''}) q2
+        | x5 => Pullback.pbMap {pb'} (l1 `o` Pullback.pbProj1 {pb''}) (l2 `o` Pullback.pbProj2 {pb''}) (p7 *> inv p8)
+        | p11 => pmap (Pullback.pbProj2 {pb1} `o`) ((Pullback.pbBeta1 {pb'}) {pb''} {l1 `o` Pullback.pbProj1 {pb''}} {l2 `o` Pullback.pbProj2 {pb''}} {p7 *> inv p8})
+        | p12 => rewrite q1 (p11 *> inv o-assoc)
+      \in (x4 `o` x5, inv o-assoc *> pmap (`o` x5) Pullback.pbBeta2 *> o-assoc *> p12 *> Pullback.pbCoh {pb''}),
+      \let x1 => (Pullback.pbMap {pb1}) (Pullback.pbProj1 {pb} `o` Pullback.pbProj1 {pb-of-pb}) (Pullback.pbProj2 {pb-of-pb})
+          (inv o-assoc *> rewrite (Pullback.pbCoh {pb}) (Pullback.pbCoh {pb-of-pb}))
+           | x2 => (Pullback.pbMap {pb2}) (Pullback.pbProj2 {pb} `o` Pullback.pbProj1 {pb-of-pb}) (Pullback.pbProj2 {pb-of-pb})
+               (inv o-assoc *> Pullback.pbCoh {pb-of-pb})
+           | p1 => Pullback.pbBeta2 {pb1} {pb-of-pb} {Pullback.pbProj1 {pb} `o` Pullback.pbProj1 {pb-of-pb}} {Pullback.pbProj2 {pb-of-pb}}
+               {inv o-assoc *> rewrite (Pullback.pbCoh {pb}) (Pullback.pbCoh {pb-of-pb})}
+           | p2 => Pullback.pbBeta2 {pb2} {pb-of-pb} {Pullback.pbProj2 {pb} `o` Pullback.pbProj1 {pb-of-pb}} {Pullback.pbProj2 {pb-of-pb}}
+               {inv o-assoc *> Pullback.pbCoh {pb-of-pb}}
+           | x3 => Pullback.pbMap {pb'} x1 x2 (p1 *> inv p2)
+           | p3 => inv o-assoc *> pmap (`o` Pullback.pbProj1 {pb'}) s1
+           | p4 => inv o-assoc *> pmap (`o` Pullback.pbProj2 {pb'}) s2
+           | x4 => Pullback.pbMap {pb''} (r1 `o` Pullback.pbProj1 {pb'}) (r2 `o` Pullback.pbProj2 {pb'}) (p3 *> Pullback.pbCoh {pb'} *> inv p4)
+           | p5 => o-assoc *> pmap (Pullback.pbProj2 {pb2} `o`) (Pullback.pbBeta2 {pb'} {pb-of-pb} {x1} {x2} {p1 *> inv p2}) *> p2
+           | p6 => o-assoc *> pmap (Pullback.g {pb''} `o`) (Pullback.pbBeta2 {pb''} {pb'} {r1 `o` Pullback.pbProj1 {pb'}} {r2 `o` Pullback.pbProj2 {pb'}} {p3 *> Pullback.pbCoh {pb'} *> inv p4})
+      \in (x4 `o` x3, inv o-assoc *> pmap (`o` x3) (p6 *> inv o-assoc *> pmap (`o` Pullback.pbProj2 {pb'}) s2) *> p5))
+  | Eq t t1 => rewriteI (lemma-subst t1 term, lemma-subst t term) (
+    \let h => I TyF TeF term
+         | e => C.equalizer (I TyF TeF t C.∘ I TyF TeF term) (I TyF TeF t1 C.∘ I TyF TeF term)
+         | e1 =>  C.equalizer (I TyF TeF t) (I TyF TeF t1)
+         | pb => C.pullback (Equalizer.eql {e1}) h
+    \in (
+      \let x1 => Equalizer.eqMap {e1} (h `o` Equalizer.eql {e}) (inv o-assoc *> Equalizer.equal {e} *> o-assoc)
+           | p1 => Equalizer.eqBeta {e1} (h `o` Equalizer.eql {e}) (inv o-assoc *> Equalizer.equal {e} *> o-assoc)
+           | x2 => Pullback.pbMap {pb} x1 (Equalizer.eql {e}) p1
+      \in (x2, Pullback.pbBeta2 {pb} {e} {x1} {Equalizer.eql {e}} {p1}),
+      \let p1 => inv o-assoc *> pmap (`o` Pullback.pbProj1 {pb}) (Equalizer.equal {e1}) *> o-assoc
+           | p2 => rewrite (Pullback.pbCoh {pb}) p1
+           | x1 => Equalizer.eqMap {e} (Pullback.pbProj2 {pb}) (o-assoc *> p2 *> inv o-assoc) \in
+        (x1, Equalizer.eqBeta {e} _ _)))
+  | FParam {cod} f t => rewriteI (lemma-subst t term) (
+    \let pb1 => C.pullback (FF cod f).2 (I TyF TeF t)
+         | pb2 => C.pullback (Pullback.pbProj2 {pb1}) (I TyF TeF term)
+         | pb3 => C.pullback (FF cod f).2 (I TyF TeF t `o` I TyF TeF term)
+    \in (
+      \let x1 => Pullback.pbMap {pb1} (Pullback.pbProj1 {pb3}) (Pullback.g {pb2} `o` Pullback.pbProj2 {pb3}) (Pullback.pbCoh {pb3} *> o-assoc)
+           | p1 => Pullback.pbBeta2 {pb1} {pb3} {Pullback.pbProj1 {pb3}} {Pullback.g {pb2} `o` Pullback.pbProj2 {pb3}} {Pullback.pbCoh {pb3} *> o-assoc}
+           | x2 => Pullback.pbMap {pb2} x1 Pullback.pbProj2 p1
+      \in (x2, Pullback.pbBeta2),
+      \let p1 => o-assoc *> pmap (Pullback.g {pb1} `o`) (Pullback.pbCoh {pb2}) *> inv o-assoc
+           | p2 => inv o-assoc *> pmap (`o` Pullback.pbProj1 {pb2}) (Pullback.pbCoh {pb1}) *> p1
+           | x1 => Pullback.pbMap {pb3} (Pullback.pbProj1 {pb1} `o` Pullback.pbProj1 {pb2}) (Pullback.pbProj2 {pb2}) p2
+      \in (x1, Pullback.pbBeta2)))
+  | FTrue =>
+    \let pb => C.pullback (id (IT TyF dom)) (I TyF TeF term)
+    \in((Pullback.pbMap {pb} (I TyF TeF term) (id _) (id-left *> inv id-right), Pullback.pbBeta2),
+        (Pullback.pbProj2, id-left))
+  | Exists {dom''} form =>
+    \let (sub-f, in-f, mono-f) => IF TyF TeF FF form
+         | It => I TyF TeF term
+         | term' => Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))
+         | tpl-map => I TyF TeF term'
+         | tpl-map' => C.pair (C.proj1 `o` id (C.Bprod (IT TyF dom'') _)) (It `o` (C.proj2 `o` id _))
+         | eq => (\let xx => pmap (C.pair (C.proj1 `o` id (C.Bprod (IT TyF dom'') _)) __ )
+             (lemma-subst {_}{_}{_}{_}{TeF} term (Proj2 (Var idp)))\in inv xx : tpl-map = tpl-map')
+         | pb-f => C.pullback in-f tpl-map
+         | (f-tpl, so-pb) => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} form term'
+         | (inc1, inc1') => lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form term'
+         | img => C.image (C.proj2 `o` f-tpl.2)
+         | img-pb => C.image (C.proj2 `o` so-pb.2)
+         | (x1, x2) => image-lemma-subobjects (C.proj2 `o` f-tpl.2) (C.proj2 `o` so-pb.2) inc1.1 (o-assoc *> pmap (C.proj2 `o`) inc1.2)
+         | img-inc-1 => image-lemma (C.proj2 `o` f-tpl.2) (C.proj2 `o` so-pb.2) inc1.1 (o-assoc *> pmap (C.proj2 `o`) inc1.2)
+         | img-inc-1' => image-lemma (C.proj2 `o` so-pb.2) (C.proj2 `o` f-tpl.2) inc1'.1 (o-assoc *> pmap (C.proj2 `o`) inc1'.2)
+         | pb-f' => pullback-lem pb-f eq
+         | pb-big => pullback-lemma (prod-lemma (IT TyF dom'') It) pb-f'
+         | img-pb-big => C.image (Pullback.pbProj2 {pb-big})
+         | (_, x3) => image-lemma-subobjects (C.proj2 `o` so-pb.2) (Pullback.pbProj2 {pb-big}) (id _) id-right
+         | img-inc-2 => image-lemma (C.proj2 `o` so-pb.2) (Pullback.pbProj2 {pb-big}) (id _) id-right
+         | img-inc-2' => image-lemma (Pullback.pbProj2 {pb-big}) (C.proj2 `o` so-pb.2)  (id _) id-right
+         | (h-im, is-pb) => C.image-stability (C.proj2 `o` in-f) It pb-big (C.image (C.proj2 `o` in-f)) (C.image (Pullback.pbProj2 {pb-big}))
+         | pb-final => C.pullback (Image.in {C.image (CartesianPrecat.proj2 C.∘ (IF TyF TeF FF form).2)}) (I TyF TeF term)
+         | so-final => pullback-of-subobj (I TyF TeF term) (\let img => C.image (CartesianPrecat.proj2 C.∘ (IF TyF TeF FF form).2) \in (img, Image.in {img}, Image.in-mono {img}))
+         | t1 => subobj-inclusion-transitivity x1 x2 x3 img-inc-1 img-inc-2
+         | t2 => subobj-inclusion-transitivity x1 x3 so-final t1 (Pullback.pbMap h-im x3.2 (Pullback.pbCoh {is-pb}), Pullback.pbBeta2)
+         | t1' => subobj-inclusion-transitivity x3 x2 x1 img-inc-2' img-inc-1'
+         | t2' => subobj-inclusion-transitivity so-final x3 x1 (Pullback.pbMap {is-pb} (Pullback.pbProj1 {pb-final}) (Pullback.pbProj2 {pb-final})
+                                                                    (Pullback.pbCoh {pb-final}), Pullback.pbBeta2) t1'
+    \in (t2, t2')
+  | FFalse => pullback-def-to-inclusions C.initial-stability
+  | Disj form1 form2 => pullback-def-to-inclusions
+      (C.bcoprod-stability (inclusions-to-pullback-def (lemma-substF form1 term)) (inclusions-to-pullback-def (lemma-substF form2 term)))
+  | Impl form1 form2 =>
+    \let ro => I TyF TeF term
+         | If1 => IF TyF TeF FF form1
+         | If2 => IF TyF TeF FF form2
+         | k => (IF TyF TeF FF (substF form1 term)).2
+         | Isub2 => IF TyF TeF FF (substF form2 term)
+         | pb1 => inclusions-to-pullback-def (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form1 term)
+    \in bi-inclusion-transitivity
+        (C.r-adj k (pullback-functor k Isub2))
+        (C.r-adj k (pullback-functor (Pullback.pbProj1 {pb1}) (pullback-functor If1.2 If2)))
+        (pullback-functor ro (C.r-adj If1.2 (pullback-functor If1.2 If2)))
+        (functor-lemma _ _ (C.r-adj k)
+            (bi-inclusion-transitivity
+                (pullback-of-subobj k Isub2)
+                (pullback-of-subobj k (pullback-functor ro If2))
+                (pullback-of-subobj (Pullback.pbProj1 {pb1}) (pullback-of-subobj If1.2 If2))
+                (functor-lemma _ (pullback-functor ro If2) (pullback-functor k) (lemma-substF form2 term))
+                (bi-inclusion-transitivity
+                    (pullback-of-subobj k (pullback-functor ro If2))
+                    (pullback-of-subobj (ro `o` k) If2)
+                    (pullback-of-subobj (Pullback.pbProj1 {pb1}) (pullback-of-subobj If1.2 If2))
+                    (pullback-comp-lemma k ro If2)
+                    (rewriteI (Pullback.pbCoh {pb1}) (swap (pullback-comp-lemma (Pullback.pbProj1 {pb1}) If1.2 If2))))))
+        (beck-chevalley-condition (Pullback.pbProj1 {pb1}) If1.2 k ro (pullback-swap pb1) (pullback-of-subobj If1.2 If2))
+  | Forall {dom''} form =>
+    \let tpl => Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))
+         | Itpl => I TyF TeF tpl
+         | Iterm => I TyF TeF term
+         | Iform => IF TyF TeF FF form
+         | Itpl' => C.pair (C.proj1 `o` id (C.Bprod (IT TyF dom'') _)) (Iterm `o` (C.proj2 `o` id _))
+         | eq => (\let xx => pmap (C.pair (C.proj1 `o` id (C.Bprod (IT TyF dom'') _)) __ )
+             (lemma-subst {_}{_}{_}{_}{TeF} term (Proj2 (Var idp)))\in inv xx : Itpl = Itpl')
+    \in bi-inclusion-transitivity
+        (C.r-adj CartesianPrecat.proj2 (IF TyF TeF FF (substF form (Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))))))
+        _ (pullback-of-subobj Iterm (C.r-adj CartesianPrecat.proj2 Iform))
+        (functor-lemma _ (pullback-of-subobj Itpl Iform) (C.r-adj C.proj2) (lemma-substF form tpl))
+        (beck-chevalley-condition Itpl C.proj2 C.proj2 Iterm (rewrite eq (pullback-swap (prod-lemma (IT TyF dom'') Iterm))) Iform)
+  \where {
+    \func image-lemma {C : RegularPrecat} {A A' B : C} (f : Hom A B) (f' : Hom A' B) (h : Hom A A') (p : f' `o` h = f)
+      : \let img => C.image f |  img' => C.image f' \in subobj-inclusion (img, Image.in {img}, Image.in-mono {img}) (img', Image.in {img'}, Image.in-mono {img'}) =>
+      \let img => C.image f |  img' => C.image f' \in Image.map (Image.in {img'}) (Image.in-mono {img'})
+          (Image.im2 {img'} `o` h) (inv o-assoc *> rewrite (Image.im-comm {img'}) p)
+
+    \func image-lemma-subobjects {C : RegularPrecat} {A A' B : C} (f : Hom A B) (f' : Hom A' B) (h : Hom A A') (p : f' `o` h = f) : \Sigma (subobj B) (subobj B) =>
+      \let img => C.image f |  img' => C.image f' \in ((Image.im {img}, Image.in {img}, Image.in-mono {img}), (Image.im {img'}, Image.in {img'}, Image.in-mono {img'}))
+
+    \func pullback-lem {C : RegularPrecat} {x y1 z1 : C} {f : Hom x z1} {g g' : Hom y1 z1} (pb : Pullback f g) (p : g = g') : Pullback f g' pb pb.pbProj1 pb.pbProj2  \elim p
+      | idp => pb
+
+    \func prod-lemma {C : CartesianPrecat} (A : C) {B B' : C} (h : Hom B B')
+      : Pullback (C.proj2 {A} {B'}) h (C.Bprod A B) (C.pair (C.proj1 `o` id (C.Bprod A B)) (h `o` (C.proj2 `o` id _))) (C.proj2 {A} {B}) \cowith
+      | pbCoh => rewrite (C.beta2, id-right) idp
+      | pbMap {w} h1 h2 q => Product.tupleMap {Bprod A B} (\case \elim __ \with {
+        | 0 => C.proj1 `o` h1
+        | 1 => h2
+      })
+      | pbBeta1 {_}{_}{_}{p} => rewrite (C.pair-comp, id-right, C.beta1, id-right, o-assoc, C.beta2, inv p, inv C.pair-comp, C.pair-proj) id-left
+      | pbBeta2 => rewrite C.beta2 idp
+      | pbEta {_}{h1}{h2} p q => \let q' => rewrite (id-right, id-right) p | q'' => rewrite C.beta1 (o-assoc *> pmap (C.proj1 `o`) q' *> inv o-assoc) \in C.pair-unique q'' q
+
+    \func functor-lemma {C : Precat} {A B : C} (so1 so2 : subobj A) (F : Functor (subobj-cat A) (subobj-cat B))
+                        (p : bi-inclusion so1 so2) : bi-inclusion (F so1) (F so2) => (F.Func p.1, F.Func p.2)
+
+    \func pullback-swap {C : Precat} {A B Z : C} {f : Hom A Z} {g : Hom B Z} (pb : Pullback f g)
+      : Pullback g f pb pb.pbProj2 pbProj1 \cowith
+      | pbCoh => inv pb.pbCoh
+      | pbMap p1 p2 e => pb.pbMap p2 p1 (inv e)
+      | pbBeta1 => pb.pbBeta2
+      | pbBeta2 => pb.pbBeta1
+      | pbEta e1 e2 => pb.pbEta e2 e1
+
+    \func pullback-comp-lemma {Cat : FinCompletePrecat} {A B C : Cat} (f : Hom A B) (g : Hom B C) (so : subobj C)
+      : bi-inclusion (pullback-functor f (pullback-functor g so)) (pullback-functor (g `o` f) so) =>
+      \let pb-big => pullback-swap (pullback-lemma (pullback-swap (pullback so.2 g)) (pullback-swap (pullback (pullback-of-subobj g so).2 f)))
+      \in pullback-def-to-inclusions {_}{_}{_}{_}{pullback-functor f (pullback-functor g so)} pb-big
+
+    \func swap {A B : \Type} (x : \Sigma A B) => (x.2, x.1)
+  }
+
+\data Proof {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
+            (PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set) (hyp f : Formula P FP dom)
+  | idProof (hyp = f)
+  | transProof {f' : Formula P FP dom} (Proof PP hyp f') (Proof PP f' f)
+  | substProof {dom' : Type TP} {term : Term P dom dom'} {hyp' f' : Formula P FP dom'}
+               (hyp = substF hyp' term) (f = substF f' term) (Proof PP hyp' f')
+  | reflProof {cod : Type TP} {a : Term P dom cod} (f = Eq a a)
+  | transportProof {dom' : Type TP} {a a' : Term P dom dom'} {f' : Formula P FP (Prod dom dom')}
+                   (f = substF f' (Tuple idp (Var idp) a')) (Proof PP hyp (Eq a a')) (Proof PP hyp (substF f' (Tuple idp (Var idp) a)))
+  | concatProof {cod : Type TP} (a b c : Term P dom cod) (f = Eq a c) (Proof PP hyp (Eq a b)) (Proof PP hyp (Eq b c))
+  | pmapProof {mid cod : Type TP} {a b : Term P dom mid} (h : Term P (Prod dom mid) cod)
+              (f = Eq (subst h (Tuple idp (Var idp) a)) (subst h (Tuple idp (Var idp) b))) (Proof PP hyp (Eq a b))
+  | invProof {cod : Type TP} {a b : Term P dom cod} (f = Eq a b) (Proof PP hyp (Eq b a))
+  | proj1Proof {f2 : Formula P FP dom} (hyp = Conj f f2)
+  | proj2Proof {f1 : Formula P FP dom} (hyp = Conj f1 f)
+  | tupleProof {f1 f2 : Formula P FP dom} (f = Conj f1 f2) (Proof PP hyp f1) (Proof PP hyp f2)
+  | hypothesis (PP dom hyp f)
+  | trueProof (f = FTrue)
+  | existsProof1 {dom' dom'' : Type TP} {f' : Formula P FP dom''} (p : dom = Prod dom' dom'')
+                 (f = rewrite p (substF f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (q : Proof PP (Exists (rewriteI p hyp)) f')
+  | existsProof2 {dom' : Type TP} {hyp' : Formula P FP (Prod dom' dom)} (hyp = Exists hyp') (Proof PP hyp' (substF f (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
+  | existsProofSubst {dom' : Type TP} {t : Term P dom dom'} {f' : Formula P FP (Prod dom' dom)} (hyp = substF f' (Tuple idp t (Var idp))) (f = Exists f')
+  | disjLeft {f' : Formula P FP dom} (f = Disj hyp f')
+  | disjRight {f' : Formula P FP dom} (f = Disj f' hyp)
+  | disjHyp {hyp' hyp'' : Formula P FP dom} (hyp = Disj hyp' hyp'') (Proof PP hyp' f) (Proof PP hyp'' f)
+  | absurdProof (hyp = FFalse)
+  | forallProof1 {dom' dom'' : Type TP} {hyp' : Formula P FP dom''} (p : dom = Prod dom' dom'')
+                 (hyp = rewrite p (substF hyp' (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (q : Proof PP hyp' (Forall (rewriteI p f)))
+  | forallProof2 {dom' : Type TP} {f' : Formula P FP (Prod dom' dom)} (f = Forall f') (Proof PP (substF hyp (Proj2 {_}{_}{_}{_}{dom'} (Var idp))) f')
+  | forallProofSubst {dom' : Type TP} {t : Term P dom dom'} {f' : Formula P FP (Prod dom' dom)} (f = substF f' (Tuple idp t (Var idp))) (hyp = Forall f')
+  | abstractionProof {phi psi : Formula P FP dom} (f = Impl phi psi) (Proof PP (Conj hyp phi) psi)
+  | applicationProof {phi : Formula P FP dom} (Proof PP hyp phi) (Proof PP hyp (Impl phi f))
+
+\func IP
+  {C : HeytingPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
+  (TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
+  {FP : Type TP -> \Set} (FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom))
+  {dom : Type TP} {PP : \Pi(dom : Type TP) -> Formula P FP dom ->  Formula P FP dom -> \Set}
+  (PF : \Pi(dom : Type TP) -> \Pi(hyp form : Formula P FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form))
+  {hyp form : Formula P FP dom} (proof : Proof PP hyp form) : subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form) \elim proof
+  | idProof p => rewrite p (id _, id-right)
+  | transProof proof1 proof2 =>
+    subobj-inclusion-transitivity _ _ _ (IP TyF TeF FF PF proof1) (IP TyF TeF FF PF proof2)
+  | substProof {dom'} {term} {hyp'} {form'} p p1 proof => rewrite (p, p1) (
+    \let h => I TyF TeF term
+         | (in, p) => IP TyF TeF FF PF proof
+         | pb1 => C.pullback (IF TyF TeF FF hyp').2 h
+         | pb2 => C.pullback (IF TyF TeF FF form').2 h
+         | x => Pullback.pbMap {pb2} (in `o` Pullback.pbProj1 {pb1}) (Pullback.pbProj2 {pb1}) (inv o-assoc *> rewrite p (Pullback.pbCoh {pb1}))
+         | p1 => (Pullback.pbBeta2 {pb2}) {pb1} {in `o` Pullback.pbProj1 {pb1}} {Pullback.pbProj2 {pb1}} {inv o-assoc *> rewrite p (Pullback.pbCoh {pb1})}
+         | (a, a') => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} hyp' term
+         | (b, b') => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} form' term
+         | in' => subobj-inclusion-transitivity a a' b' (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} hyp' term).1 (x, p1)
+         | in'' => subobj-inclusion-transitivity a b' b in' (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form' term).2
+    \in in'')
+  | reflProof {cod} {a} p => rewrite p (inclusion-to-equalizer-lemma' idp)
+  | transportProof {dom'} {a} {a'} {f'} p eqProof proof => rewrite p (
+    \let Ia => I TyF TeF (Tuple idp (Var idp) a)
+         | Ia' => I TyF TeF (Tuple idp (Var idp) a')
+         | pb1 => C.pullback (IF TyF TeF FF f').2 Ia
+         | pb2 => C.pullback (IF TyF TeF FF f').2 Ia'
+         | si1 => IP TyF TeF FF PF proof
+         | Ia=Ia' => pmap (C.pair (id _ `o` (IF TyF TeF FF hyp).2) __) (inclusion-to-equalizer-lemma (IP TyF TeF FF PF eqProof))
+         | (_, hypIn, _) => IF TyF TeF FF hyp
+         | (x, x') => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp (Var idp) a)
+         | (y, y') => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp (Var idp) a')
+         | (in1, p1) => subobj-inclusion-transitivity _ x x' si1 (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp (Var idp) a)).1
+         | in2 => Pullback.pbMap {pb2} (Pullback.pbProj1 {pb1} `o` in1) hypIn (inv o-assoc *> rewrite (Pullback.pbCoh {pb1}) (o-assoc *> rewrite p1 (C.pair-comp *> Ia=Ia' *> inv C.pair-comp)))
+         | p2 => Pullback.pbBeta2 {pb2} {_} {Pullback.pbProj1 {pb1} `o` in1} {hypIn} {inv o-assoc *> rewrite (Pullback.pbCoh {pb1}) (o-assoc *> rewrite p1 (C.pair-comp *> Ia=Ia' *> inv C.pair-comp))}
+    \in subobj-inclusion-transitivity _ y' y (in2, p2) (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp (Var idp) a')).2)
+  | concatProof {cod} a b c p proof1 proof2 => rewrite p (
+    \let q => inclusion-to-equalizer-lemma (IP TyF TeF FF PF proof1)
+         | q' => inclusion-to-equalizer-lemma (IP TyF TeF FF PF proof2)
+    \in inclusion-to-equalizer-lemma' (q *> q'))
+  | pmapProof {mid} {cod} {a} {b} h p proof => rewrite (p, inv (lemma-subst h (Tuple idp (Var idp) a)), inv (lemma-subst h (Tuple idp (Var idp) b)))(
+    \let q => pmap (\lam xx => I TyF TeF h `o` C.pair (id _ `o` (IF TyF TeF FF hyp).2) xx) (inclusion-to-equalizer-lemma (IP TyF TeF FF PF proof))
+    \in inclusion-to-equalizer-lemma' (o-assoc *>  (pmap (I TyF TeF h `o`) C.pair-comp *> q *> pmap (I TyF TeF h `o`) (inv C.pair-comp))  *> inv o-assoc))
+  | invProof p proof => rewrite p (
+    \let q => inclusion-to-equalizer-lemma (IP TyF TeF FF PF proof)
+    \in inclusion-to-equalizer-lemma' (inv q))
+  | proj1Proof {f2} p => rewrite p (
+    \let pb => C.pullback (IF TyF TeF FF form).2 (IF TyF TeF FF f2).2 \in (Pullback.pbProj1 {pb}, Pullback.pbCoh {pb}))
+  | proj2Proof {f1} p => rewrite p (
+    \let pb => C.pullback (IF TyF TeF FF f1).2 (IF TyF TeF FF form).2 \in (Pullback.pbProj2 {pb}, idp)
+  )
+  | tupleProof {f1} {f2} p proof1 proof2 => rewrite p (
+    \let pb => C.pullback (IF TyF TeF FF f1).2 (IF TyF TeF FF f2).2
+         | (in1, p1) => IP TyF TeF FF PF proof1
+         | (in2, p2) => IP TyF TeF FF PF proof2
+         | q => o-assoc *> pmap ((IF TyF TeF FF f2).2 `o`) (Pullback.pbBeta2 {pb} {_} {in1} {in2} {p1 *> inv p2})
+    \in (Pullback.pbMap {pb} in1 in2 (p1 *> inv p2),
+         q *> p2))
+  | hypothesis p => PF dom hyp form p
+  | trueProof p => rewrite p ((IF TyF TeF FF hyp).2, id-left)
+  | existsProof1 {dom'} {dom''} {f'} p p1 proof => rewrite p1 (exists-lem1 {C}{TP}{P}{TyF}{TeF}{FP}{FF}{dom}{PP}{PF}{dom'}{dom''}{form}{hyp}{p}{f'}{p1}{proof})
+  | existsProof2 {dom'} {hyp'} p proof => rewrite p (
+    \let (in1, in2) => lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} form (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
+         | in3 => IP TyF TeF FF PF proof
+         | Iproj2 => I TyF TeF (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
+         | If => IF TyF TeF FF form
+         | Ih' => IF TyF TeF FF hyp'
+         | pb => C.pullback If.2 Iproj2
+         | img => C.image (C.proj2 `o` Ih'.2)
+         | x => Image.map {img} If.2 If.3 (Pullback.pbProj1 {pb} `o` in1.1 `o` in3.1) (inv o-assoc *> rewriteI (o-assoc, inv (Pullback.pbCoh {pb}))
+                                                                                                          (o-assoc *> o-assoc *> o-assoc *> pmap (C.proj2 `o`) (id-left *> inv o-assoc *> pmap (`o` in3.1) in1.2 *> in3.2)))
+    \in x)
+  | existsProofSubst {dom'} {t} {f'} p p1 => rewrite (p, p1) (
+    \let
+      | (in1, in2) => lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' (Tuple idp t (Var idp))
+      | (x1, x2) => lemma-substF-subobjects {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' (Tuple idp t (Var idp))
+      | If' => IF TyF TeF FF f'
+      | Itpl => I TyF TeF (Tuple idp t (Var idp))
+      | pb => C.pullback If'.2 Itpl
+      | img => C.image (C.proj2 `o` If'.2)
+    \in subobj-inclusion-transitivity x1 x2 (IF TyF TeF FF (Exists f')) in1 (Image.im2 {img} `o` Pullback.pbProj1 {pb},
+                                                                             inv o-assoc *> rewrite (Image.im-comm {img}) (o-assoc *> rewrite (Pullback.pbCoh {pb}) (inv o-assoc *> rewrite C.beta2 id-left))))
+  | disjLeft p => rewrite p (Bcoprod.inl {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _})
+  | disjRight p => rewrite p (Bcoprod.inr {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _})
+  | disjHyp p proof1 proof2 => rewrite p (Bcoprod.map {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _} (IP TyF TeF FF PF proof1) (IP TyF TeF FF PF proof2))
+  | absurdProof p => rewrite p (Initial.map {PrecatWithFiniteCoproducts.initial {C.subobj-cat-with-coproducts _}})
+  | forallProof1 {dom'} {dom''} {hyp'} p p1 proof => rewrite p1 (forall-lem1 {C}{TP}{P}{TyF}{TeF}{FP}{FF}{dom}{PP}{PF}{dom'}{dom''} form hyp p hyp' proof)
+  | forallProof2 p proof => rewrite p (RightAdjoint.isAdjoint {C.r-adj C.proj2} (subobj-inclusion-transitivity
+      (pullback-of-subobj C.proj2 (IF TyF TeF FF hyp)) _ _
+      (rewriteI id-right (lemma-substF hyp (Proj2 (Var idp))).2) (IP TyF TeF FF PF proof)))
+  | forallProofSubst {dom'} {t} {f'} p p1 => rewrite (p, p1) (
+    \let tpl => Tuple idp t (Var idp)
+         | Itpl => I TyF TeF tpl
+         | If => IF TyF TeF FF f'
+         | radj-f => C.r-adj C.proj2 If
+         | pb-radj-f => pullback radj-f.2 (C.proj2 : Hom (C.Bprod (IT TyF dom') (IT TyF dom)) (IT TyF dom)) \in (
+      (Pullback.pbMap {inclusions-to-pullback-def (lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' tpl)})
+          (((Equiv.sec {RightAdjoint.isAdjoint {C.r-adj C.proj2}}) (id _, id-right)).1
+            `o` (Pullback.pbMap {pb-radj-f}) (id _) (Itpl `o` radj-f.2) (id-right *> unfold (rewrite (C.beta2, id-left) idp) *> o-assoc))
+          radj-f.2 (inv o-assoc *> rewrite ((Equiv.sec {RightAdjoint.isAdjoint {C.r-adj C.proj2}}) (id _, id-right)).2
+                                       (rewrite (Pullback.pbBeta2 {pb-radj-f}) idp)), Pullback.pbBeta2)
+  )
+  | abstractionProof {phi} {psi} p proof => rewrite p (
+    \let Ihyp => IF TyF TeF FF hyp | Iphi => IF TyF TeF FF phi | Ipsi => IF TyF TeF FF psi
+    \in RightAdjoint.isAdjoint {C.r-adj Iphi.2} ((Pullback.pbMap {pullback Ipsi.2 Iphi.2}) (IP TyF TeF FF PF proof).1
+                                                     Pullback.pbProj2 (rewriteEq (IP TyF TeF FF PF proof).2 idp), Pullback.pbBeta2))
+  | applicationProof {phi} proof1 proof2 =>
+    \let Ihyp => IF TyF TeF FF hyp | Iphi => IF TyF TeF FF phi | Ipsi => IF TyF TeF FF form
+         | Ipr1 => IP TyF TeF FF PF proof1 | Ipr2 => IP TyF TeF FF PF proof2
+         | inc => Equiv.sec {RightAdjoint.isAdjoint {C.r-adj Iphi.2}} Ipr2 | pb1 => pullback Ipsi.2 Iphi.2 | pb2 => pullback Ihyp.2 Iphi.2 | xxx => inc.2 \in
+      (Pullback.pbProj1 {pb1} `o` inc.1 `o` Pullback.pbMap (id _) Ipr1.1 (id-right *> inv Ipr1.2),
+       inv o-assoc *> rewriteI (o-assoc, inv (Pullback.pbCoh {pb1})) (rewriteEq (inc.2, Pullback.pbBeta2 {pb2}) Ipr1.2))
+
+  \where {
+    \func inclusion-to-equalizer-lemma {C : FinCompletePrecat} {x y : C} {f g : Hom x y} {so : subobj x}
+                                       (in : subobj-inclusion so (C.equalizer f g, Equalizer.eql {C.equalizer f g}, \new Mono (Equalizer.eql {C.equalizer f g}) (Equalizer.eqMono {C.equalizer f g})))
+      : f `o` so.2 = g `o` so.2 =>
+      rewriteI in.2 (inv o-assoc *> pmap (`o` in.1) (Equalizer.equal {C.equalizer f g}) *> o-assoc)
+
+    \func inclusion-to-equalizer-lemma' {C : FinCompletePrecat} {x y : C} {f g : Hom x y} {so : subobj x} (p : f `o` so.2 = g `o` so.2)
+      : subobj-inclusion so (C.equalizer f g, Equalizer.eql {C.equalizer f g}, \new Mono (Equalizer.eql {C.equalizer f g}) (Equalizer.eqMono {C.equalizer f g})) =>
+      \let e => C.equalizer f g \in (Equalizer.eqMap {e} so.2 p, Equalizer.eqBeta {e} so.2 p)
+
+    \func exists-lem1 {C : HeytingPrecat} {TP : \Set} {P : Type TP -> Type TP -> \Set}
+                      {TyF : TP -> C} {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> C.Hom (IT TyF ctx') (IT TyF T')}
+                      {FP : Type TP -> \Set} {FF : \Pi (dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
+                      {dom : Type TP} {PP : \Pi (dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
+                      {PF : \Pi (dom : Type TP) -> \Pi (hyp form : Formula P FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form)}
+                      {dom' : Type TP} {dom'' : Type TP} {form : Formula P FP dom} {hyp : Formula P FP dom} {p : dom = Prod dom' dom''}
+                      {f' : Formula P FP dom''} {p1 : form = transportInv (Formula P FP) p (substF f' (Proj2 (Var idp)))}
+                      {proof : Proof PP (Exists (transport (Formula P FP) p hyp)) f'}
+      : subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF (transportInv (Formula P FP) p (substF f' (Proj2 (Var idp))))) \elim p
+      | idp =>
+        \let (in1, in2) => lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
+             | in3 => IP TyF TeF FF PF proof
+             | Iproj2 => I TyF TeF (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
+             | If' => IF TyF TeF FF f'
+             | pb => C.pullback If'.2 Iproj2
+             | img => C.image (CartesianPrecat.proj2 C.∘ (IF TyF TeF FF hyp).2)
+             | x => Pullback.pbMap {pb} (in3.1 `o` Image.im2 {img}) (IF TyF TeF FF hyp).2 (rewrite id-right (inv o-assoc *> rewrite in3.2 idp *> Image.im-comm {img}))
+        \in subobj-inclusion-transitivity _ (pullback-of-subobj Iproj2 If') _ (x, Pullback.pbBeta2) in2
+
+    \func forall-lem1 {C : HeytingPrecat} {TP : \Set} {P : Type TP -> Type TP -> \Set}
+                      {TyF : TP -> C} {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> C.Hom (IT TyF ctx') (IT TyF T')}
+                      {FP : Type TP -> \Set} {FF : \Pi (dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
+                      {dom : Type TP} {PP : \Pi (dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
+                      {PF : \Pi (dom : Type TP) -> \Pi (hyp form : Formula P FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form)}
+                      {dom' : Type TP} {dom'' : Type TP} (form : Formula P FP dom) (hyp : Formula P FP dom) (p : dom = Prod dom' dom'')
+                      (hyp' : Formula P FP dom'') (proof : Proof PP hyp' (Forall (transport (Formula P FP) p form)))
+      : subobj-inclusion (IF TyF TeF FF (transportInv (Formula P FP) p (substF hyp' (Proj2 (Var idp))))) (IF TyF TeF FF form) \elim p
+      | idp => subobj-inclusion-transitivity
+          (IF TyF TeF FF (substF hyp' (Proj2 (Var idp)))) (pullback-of-subobj (I TyF TeF (Proj2 (Var idp))) (IF TyF TeF FF hyp')) (IF TyF TeF FF form)
+          (lemma-substF hyp' (Proj2 (Var idp))).1
+          (rewrite id-right (Equiv.sec {RightAdjoint.isAdjoint {C.r-adj C.proj2}}
+              (IP TyF TeF FF PF proof)))
+  }
+
+

@@ -22,6 +22,8 @@ import org.arend.ext.util.Pair;
 import org.arend.lib.StdExtension;
 import org.arend.lib.util.Utils;
 import org.arend.lib.util.Values;
+import org.arend.term.concrete.Concrete;
+import org.arend.term.concrete.SubstConcreteVisitor;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -300,7 +302,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                     return fp.param(constructTerm(arg, ctx, pathsRefs), constructType(cod), constructType(dom),
                             findTermNumber(dom, cod, funRef), pathsRefs);
             }
-        }
+        } // Parameter
         if (expr instanceof CoreReferenceExpression) { // Var or constant
             var type = expr.computeType();
             if (findTermNumber(sigma.getResultType(), type, (CoreReferenceExpression) expr) != -1) { // constant
@@ -308,7 +310,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                         findTermNumber(sigma.getResultType(), type, (CoreReferenceExpression) expr), pathsRefs);
             }
             return fp.var(constructType(type), pathsRefs);
-        }
+        } // Var or constant
         if (expr instanceof CoreTupleExpression) { // unit or Tuple
             var fields = ((CoreTupleExpression) expr).getFields();
             if (fields.size() == 0) {
@@ -324,7 +326,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 resType = fp.prodT(curType, resType);
             }
             return res;
-        }
+        } // unit or Tuple
         if (expr instanceof CoreProjExpression) { // Proj
             var type = ((CoreProjExpression) expr).getExpression().computeType();
             var link = ((CoreSigmaExpression) type).getParameters();
@@ -353,7 +355,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 ind--;
             }
             return last ? term : fp.proj1(typesCumulative.get(typesCumulative.size() - 1 - (Sind + 1)), term, pathsRefs);
-        }
+        } // Proj
         return null;
     }
 
@@ -650,7 +652,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
     @Dependency(module = "Paths", name = "pmap")
     private CoreFunctionDefinition pmap;
 
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "param-var")
+    @Dependency(module = "CategoryLanguage.Util", name = "param-var")
     private CoreFunctionDefinition paramVar;
 
     CoreBinding x;
@@ -662,7 +664,6 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
         if (expr instanceof CoreFunCallExpression proofFunCall) {
             var fun = proofFunCall.getDefinition();
             var args = proofFunCall.getDefCallArguments();
-
             if (fun == transport) {
                 var T = args.get(0);
                 var f1 = args.get(1);
@@ -686,7 +687,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 var proof = args.get(5);
                 return fp.transportProof(constructFormula(pType, ctx).expr, constructType(T).expr, constructTerm(a, ctx).expr,
                         constructTerm(a1, ctx).expr, constructFormula(f1, f1Ctx).expr, constructProof(eqProof), constructProof(proof));
-            }
+            } // transport
             if (fun == pathConcat) {
                 var a = args.get(1);
                 var b = args.get(2);
@@ -695,13 +696,13 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 var bcEqProof = args.get(5);
                 return fp.concatProof(constructTerm(a, ctx).expr, constructTerm(b, ctx).expr,
                         constructTerm(c, ctx).expr, constructProof(abEqProof), constructProof(bcEqProof));
-            }
+            } // equality conctenation
             if (fun == inv) {
                 var a = args.get(1);
                 var b = args.get(2);
                 var eqProof = args.get(3);
                 return fp.invProof(constructTerm(a, ctx).expr, constructTerm(b, ctx).expr, constructProof(eqProof));
-            }
+            } // equality inversion
             if (fun == pmap) {
                 var h = args.get(2);
                 var a = args.get(3);
@@ -710,21 +711,29 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 if (h.computeType() instanceof CorePiExpression) {
                     var hCtx = ((CorePiExpression) h.computeType()).getParameters().getTypeExpr();
                     var hType = ((CorePiExpression) h.computeType()).getCodomain();
+                    ConcreteExpression hTerm = null;
                     if (h instanceof CoreInferenceReferenceExpression) {
                         h = ((CoreInferenceReferenceExpression) h).getSubstExpression();
                     }
-                    int n = findTermNumber(hCtx, hType, (CoreReferenceExpression) h);
-                    var hTerm = fac.app(fac.ref(paramVar.getRef()), fac.arg(fac.ref(fp.TP), true), fac.arg(fac.ref(fp.P), true),
-                            fac.arg(constructType(hCtx).expr, true), fac.arg(constructType(hType).expr, true), fac.arg(fac.number(n), true));
+                    if (h instanceof CoreReferenceExpression) {
+                        int n = findTermNumber(hCtx, hType, (CoreReferenceExpression) h);
+                        hTerm = fac.app(fac.ref(paramVar.getRef()), fac.arg(fac.ref(fp.TP), true), fac.arg(fac.ref(fp.P), true),
+                                fac.arg(constructType(hCtx).expr, true), fac.arg(constructType(hType).expr, true), fac.arg(fac.number(n), true));
+                    }
+                    if (h instanceof CoreLamExpression hLam) {
+                        hCtx = hLam.getParameters().getTypeExpr();
+                        hTerm = constructTerm(hLam.getBody(), hCtx).expr;
+                    }
+
                     return fp.pmapProof(constructTerm(a, ctx).expr, constructTerm(b, ctx).expr,
                             hTerm, constructProof(eqProof));
                 }
-            }
+            } // pmap function
             if (fun == ext.prelude.getIdp()) {
 //                return fac.ref(ext.prelude.getIdp().getRef());
                 var a = args.get(1);
                 return fp.reflProof(constructTerm(a, ctx).expr, constructFormula(pType, ctx).expr);
-            }
+            } // identity proof
         }
         if (expr instanceof CoreProjExpression) { // Proj
             var type = ((CoreProjExpression) expr).getExpression().computeType();
@@ -755,7 +764,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 Sind++;
             }
             return last ? term : fp.transProof(term, fp.proj1Proof(types.get(Sind).expr, typesCumulative.get(typesCumulative.size() - 1 - (Sind + 1)).expr));
-        }
+        } // projection in conjunction proof
         if (expr instanceof CoreTupleExpression) { // unit or Tuple
             var fields = ((CoreTupleExpression) expr).getFields();
             if (fields.size() == 0) {
@@ -771,7 +780,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 resFormula = fp.conj(curFormula, resFormula);
             }
             return resProof;
-        }
+        } // proof of conjunction
         if (expr instanceof CoreAppExpression
                 || expr instanceof CoreReferenceExpression && findHypothesis((CoreReferenceExpression) expr) != null) {
 
@@ -821,9 +830,8 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                                 constructFormula(form, dom, new ArrayList<>()).expr,
                                 x.proj2.getIndex(fun))));
             }
-        }
-        if (expr instanceof
-                CoreReferenceExpression exprRef) {
+        } // applying hypothesis
+        if (expr instanceof CoreReferenceExpression exprRef) {
             if (exprRef.getBinding() == p) { // hyp
                 return fp.idProof(constructType(ctx).expr, constructFormula(pType, ctx, new ArrayList<>()).expr);
             }
@@ -917,6 +925,93 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                                         proof))))));
     }
 
+
+    @Dependency(module = "CategoryLanguage.Util", name = "subst-unit")
+    private static CoreFunctionDefinition substUnit;
+    @Dependency(module = "CategoryLanguage.Util", name = "carry-function")
+    private static CoreFunctionDefinition carryFunction;
+
+
+    public ConcreteExpression handleType(ArendRef ref, CoreParameter parameter, List<ConcreteParameter> paramsAcc, ConcreteExpression application) {
+
+        ConcreteExpression argRes = fac.ref(ref);
+        ConcreteParameter paramRes = fac.param(true, List.of(ref), fac.core(parameter.getTypeExpr().computeTyped()));
+
+        paramsAcc.add(paramRes);
+        return fac.app(application, fac.arg(argRes, true));
+    }
+
+    public ConcreteExpression handleTerm(CoreParameter parameter, List<ConcreteParameter> paramsAcc, ConcreteExpression application) {
+        var ref = fac.local(parameter.getBinding().getName());
+        ConcreteExpression argRes;
+        ConcreteParameter paramRes;
+
+        var type = parameter.getTypeExpr();
+        if (type instanceof CorePiExpression typePi) { // functional symbol
+            var codomain = typePi.getCodomain();
+            if (codomain instanceof CorePiExpression codPi) { // with >= two parameters
+                var codomain1 = codPi.getCodomain();
+                if (codomain1 instanceof CorePiExpression) { // >= 3 parameters
+                    return null;
+                }
+                var A = fac.param(true, fac.core(typePi.getParameters().getTypedType()));
+                var B = fac.param(true, fac.core(codPi.getParameters().getTypedType()));
+                paramRes = fac.param(true, List.of(ref),
+                        fac.pi(List.of(fac.param(true, fac.sigma(A, B))), fac.core(codomain1.computeTyped())));
+                argRes = fac.app(fac.ref(carryFunction.getRef()), fac.arg(fac.ref(ref), true));
+            } else { // with one parameter
+                paramRes = fac.param(true, List.of(ref), fac.core(type.computeTyped()));
+                argRes = fac.ref(ref);
+            }
+        } else { // constant symbol
+            paramRes = fac.param(true, List.of(ref), fac.pi(List.of(fac.param(true, fac.sigma())), fac.core(type.computeTyped())));
+            argRes = fac.app(fac.ref(substUnit.getRef()), fac.arg(fac.ref(ref), true));
+        }
+        paramsAcc.add(paramRes);
+        return fac.app(application, fac.arg(argRes, true));
+    }
+
+
+    @Dependency(module = "CategoryLanguage.Util", name = "idfunc")
+    private static CoreFunctionDefinition idfunc;
+
+    public ConcreteExpression handleTerms(ConcreteExpression lam, CoreExpression lamCore, int proofStart) {
+
+
+
+        List<ArendRef> old = new ArrayList<>();
+        if (lam instanceof ConcreteLamExpression) {
+            for (var p : ((ConcreteLamExpression) lam).getParameters()) {
+                old.addAll(p.getRefList());
+            }
+        }
+
+        var lll = typechecker.typecheck(fac.app(fac.ref(idfunc.getRef()), fac.arg(lam, true)), null).getExpression().normalize(NormalizationMode.NF);
+
+        ConcreteExpression application = fac.core(lll.computeTyped());
+        List<ConcreteParameter> parameters = new ArrayList<>();
+
+        while (proofStart > 0) {
+            if (lamCore instanceof CoreLamExpression) {
+                var params = ((CoreLamExpression) lamCore).getParameters();
+                while (params.hasNext()) {
+                    proofStart--;
+                    var type = params.getTypeExpr();
+                    if (type instanceof CoreUniverseExpression) { // type parameter
+                        application = handleType(old.get(0), params, parameters, application);
+                    } else {
+                        application = handleTerm(params, parameters, application);
+                    }
+                    params = params.getNext();
+                }
+                lamCore = ((CoreLamExpression) lamCore).getBody();
+            }
+        }
+        return fac.lam(parameters, application);
+    }
+
+
+
     @Override
     public TypedExpression invokeMeta(@NotNull ExpressionTypechecker typechecker, @NotNull ContextData contextData) {
         try {
@@ -930,15 +1025,27 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
             predicateParameters = new ArrayList<>();
             hypothesisParameters = new ArrayList<>();
 
+
             List<? extends ConcreteArgument> args = contextData.getArguments();
+
             var lam = args.get(0).getExpression();
+            var lamCore = typechecker.typecheck(args.get(0).getExpression(), null);
+            var teratsgf = fac.core(lamCore);
+
+            var xxx = handleTerms(lam, lamCore.getExpression(), 5);
+            var yyy = typechecker.typecheck(xxx, null);
+            var zzz = yyy.getExpression().normalize(NormalizationMode.NF);
+
             int proofStart = 0;
             if (lam instanceof ConcreteLamExpression) {
                 for (var p : ((ConcreteLamExpression) lam).getParameters()) {
                     proofStart += p.getRefList().size();
                 }
             }
-            var lamCore = typechecker.typecheck(args.get(0).getExpression(), null);
+            SubstConcreteVisitor visitor = new SubstConcreteVisitor(null);
+            visitor.bind();
+            ((Concrete.Expression) lam).accept(visitor, null);
+//            var lamCore = typechecker.typecheck(args.get(0).getExpression(), null);
             var proof = parseArgs(lamCore.getExpression(), proofStart);
             var proofConstructed = constructFullProof(proof);
             var finalProof = fp.applyIP(proofConstructed);

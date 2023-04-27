@@ -45,9 +45,9 @@ public class FieldsProvider {
         PF = fac.local("PF");
     }
 
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "IT")
+    @Dependency(module = "CategoryLanguage.Util", name = "IT")
     private CoreFunctionDefinition IT;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "I")
+    @Dependency(module = "CategoryLanguage.Util", name = "I")
     private CoreFunctionDefinition I;
     @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "IF")
     private CoreFunctionDefinition IF;
@@ -73,13 +73,13 @@ public class FieldsProvider {
                 fac.arg(fac.ref(FF), true), fac.arg(fac.ref(PF), true), fac.arg(proof, true));
     }
 
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Type")
+    @Dependency(module = "CategoryLanguage.Util", name = "Type")
     public CoreDataDefinition Type;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Type.TParam")
+    @Dependency(module = "CategoryLanguage.Util", name = "Type.TParam")
     private CoreConstructor TParam;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Type.Prod")
+    @Dependency(module = "CategoryLanguage.Util", name = "Type.Prod")
     private CoreConstructor Prod;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Type.Unit")
+    @Dependency(module = "CategoryLanguage.Util", name = "Type.Unit")
     private CoreConstructor UnitT;
 
     public ExpressionAndPattern paramT(int i) {
@@ -103,19 +103,19 @@ public class FieldsProvider {
     }
 
 
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Term")
+    @Dependency(module = "CategoryLanguage.Util", name = "Term")
     private CoreDataDefinition Term;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Term.Tuple")
+    @Dependency(module = "CategoryLanguage.Util", name = "Term.Tuple")
     private CoreConstructor Tuple;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Term.unit")
+    @Dependency(module = "CategoryLanguage.Util", name = "Term.unit")
     private CoreConstructor unit;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Term.Proj1")
+    @Dependency(module = "CategoryLanguage.Util", name = "Term.Proj1")
     private CoreConstructor Proj1;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Term.Proj2")
+    @Dependency(module = "CategoryLanguage.Util", name = "Term.Proj2")
     private CoreConstructor Proj2;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Term.Param")
+    @Dependency(module = "CategoryLanguage.Util", name = "Term.Param")
     private CoreConstructor Param;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Term.Var")
+    @Dependency(module = "CategoryLanguage.Util", name = "Term.Var")
     private CoreConstructor Var;
 
 
@@ -184,7 +184,7 @@ public class FieldsProvider {
                 fac.conPattern(Var.getRef(), fac.refPattern(pref, null)));
     }
 
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "subst")
+    @Dependency(module = "CategoryLanguage.Util", name = "subst")
     private CoreFunctionDefinition subst;
 
     public ConcreteExpression subst(ConcreteExpression t1, ConcreteExpression t2) {

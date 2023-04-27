@@ -1,23 +1,66 @@
 \import Category
 \import Category.Limit
 \import Category.Meta
+\import CategoryLanguage.Regular
 \import CategoryLanguage.Util
-\import Data.List
-\import Logic
-\import Meta
 \import Paths
 \import Paths.Meta
 
+\class Bcoprod {C : Precat} (X Y : C) (\classifying apex : C) {
+  | inl : Hom X apex
+  | inr : Hom Y apex
+  | map {Z : C} (f : Hom X Z) (g : Hom Y Z) : Hom apex Z
+  | map-beta1 {Z : C} {f : Hom X Z} {g : Hom Y Z} : map f g `o` inl = f
+  | map-beta2 {Z : C} {f : Hom X Z} {g : Hom Y Z} : map f g `o` inr = g
+  | map-unique {Z : C} {f : Hom X Z} {g : Hom Y Z} {h h' : Hom apex Z} (p : \Sigma (h `o` inl = f) (h `o` inr = g))
+               (p' : \Sigma (h' `o` inl = f) (h' `o` inr = g)) : h = h'
+}
 
+\class Initial {C : Precat} (\classifying apex : C) {
+  | map {A : C} : Hom apex A
+  | unique {A : C} {h1 h2 : Hom apex A} : h1 = h2
+}
+
+\class PrecatWithFiniteCoproducts \extends Precat {
+  | initial : Initial {\this}
+  | bcoprod (A B : Ob) : Bcoprod A B
+}
+
+
+\class CoherentPrecat \extends RegularPrecat {
+  | subobj-cat-with-coproducts (A : Precat.Ob) : \let SubCat => subobj-cat A \in PrecatWithFiniteCoproducts {
+    | Ob => Precat.Ob {SubCat}
+    | Hom => Precat.Hom {SubCat}
+    | id => Precat.id {SubCat}
+    | o => Precat.o {SubCat}
+    | id-left => Precat.id-left {SubCat}
+    | id-right => Precat.id-right {SubCat}
+    | o-assoc => Precat.o-assoc {SubCat}
+  }
+
+  | bcoprod-stability {A B : Precat.Ob} {f : Hom A B} {so so' : subobj-cat B} {so1 so1' : subobj-cat A}
+                      (pb : Pullback so.2 f so1.1 {| pbProj2 => so1.2}) (pb' : Pullback so'.2 f so1'.1 {| pbProj2 => so1'.2})
+  : Pullback (Bcoprod.apex {PrecatWithFiniteCoproducts.bcoprod {subobj-cat-with-coproducts B} so so'}).2 f {
+    | apex => (Bcoprod.apex {PrecatWithFiniteCoproducts.bcoprod {subobj-cat-with-coproducts A} so1 so1'}).1
+    | pbProj2 => (Bcoprod.apex {PrecatWithFiniteCoproducts.bcoprod {subobj-cat-with-coproducts A} so1 so1'}).2
+  }
+
+  | initial-stability {A B : Precat.Ob} {f : Hom A B} : Pullback (Initial.apex {PrecatWithFiniteCoproducts.initial {subobj-cat-with-coproducts B}}).2 f {
+    | apex => (Initial.apex {PrecatWithFiniteCoproducts.initial {subobj-cat-with-coproducts A}}).1
+    | pbProj2 => (Initial.apex {PrecatWithFiniteCoproducts.initial {subobj-cat-with-coproducts A}}).2
+  }
+}
 
 \data Formula {TP : \Set} (P : Type TP -> Type TP -> \Set) (FP : Type TP -> \Set) (dom : Type TP)
   | Conj (Formula P FP dom) (Formula P FP dom)
   | Eq {T : Type TP} (Term P dom T) (Term P dom T)
   | FParam {dom' : Type TP} (FP dom') (Term P dom dom')
   | FTrue
+  | Exists {dom' : Type TP} (Formula P FP (Prod dom' dom))
+  | FFalse
+  | Disj (Formula P FP dom) (Formula P FP dom)
 
-
-\func IF {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
+\func IF {C : CoherentPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
          (TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
          {FP : Type TP -> \Set} (FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom))
          {dom : Type TP} (form : Formula P FP dom) : subobj (IT TyF dom) \elim form
@@ -29,6 +72,9 @@
     })
   | FParam {dom'} x t => pullback-of-subobj (I TyF TeF t) (FF dom' x)
   | FTrue => (_, id _, \new Mono (id _) (inv id-left *> __ *> id-left))
+  | Exists form => image-subobj (C.image (C.proj2 `o` (IF TyF TeF FF form).2))
+  | FFalse => PrecatWithFiniteCoproducts.initial {C.subobj-cat-with-coproducts (IT TyF dom)}
+  | Disj f1 f2 => PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts (IT TyF dom)} (IF TyF TeF FF f1) (IF TyF TeF FF f2)
 
 \func substF {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set} {dom dom' : Type TP}
              (form : Formula P FP dom) (term : Term P dom' dom) : Formula P FP dom' \elim form
@@ -36,19 +82,21 @@
   | Eq t t1 => Eq (subst t term) (subst t1 term)
   | FParam f t => FParam f (subst t term)
   | FTrue => FTrue
+  | Exists {dom''} form => Exists (substF form (Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))))
+  | FFalse => FFalse
+  | Disj form1 form2 => Disj (substF form1 term) (substF form2 term)
 
-\func lemma-substF-subobjects  {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
+\func lemma-substF-subobjects  {C : CoherentPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
                                {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
                                {FP : Type TP -> \Set} {FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
                                {dom dom' : Type TP} (form : Formula P FP dom) (term : Term P dom' dom) =>
   (IF TyF TeF FF (substF form term), pullback-of-subobj (I TyF TeF term) (IF TyF TeF FF form))
 
-\func lemma-substF {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
+\func lemma-substF {C : CoherentPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
                    {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
                    {FP : Type TP -> \Set} {FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
                    {dom dom' : Type TP} (form : Formula P FP dom) (term : Term P dom' dom)
-  : \Sigma (subobj-inclusion (IF TyF TeF FF (substF form term)) (pullback-of-subobj (I TyF TeF term) (IF TyF TeF FF form)))
-           (subobj-inclusion (pullback-of-subobj (I TyF TeF term) (IF TyF TeF FF form)) (IF TyF TeF FF (substF form term))) \elim form
+  : bi-inclusion (IF TyF TeF FF (substF form term)) (pullback-of-subobj (I TyF TeF term) (IF TyF TeF FF form)) \elim form
   | Conj form1 form2 =>
     \let h => I TyF TeF term
          | ((l1, q1), (r1, s1)) => lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form1 term
@@ -126,163 +174,63 @@
     \let pb => C.pullback (id (IT TyF dom)) (I TyF TeF term)
     \in((Pullback.pbMap {pb} (I TyF TeF term) (id _) (id-left *> inv id-right), Pullback.pbBeta2),
         (Pullback.pbProj2, id-left))
+  | Exists {dom''} form =>
+    \let (sub-f, in-f, mono-f) => IF TyF TeF FF form
+         | It => I TyF TeF term
+         | term' => Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))
+         | tpl-map => I TyF TeF term'
+         | tpl-map' => C.pair (C.proj1 `o` id (C.Bprod (IT TyF dom'') _)) (It `o` (C.proj2 `o` id _))
+         | eq => (\let xx => pmap (C.pair (C.proj1 `o` id (C.Bprod (IT TyF dom'') _)) __ )
+             (lemma-subst {_}{_}{_}{_}{TeF} term (Proj2 (Var idp)))\in inv xx : tpl-map = tpl-map')
+         | pb-f => C.pullback in-f tpl-map
+         | (f-tpl, so-pb) => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} form term'
+         | (inc1, inc1') => lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form term'
+         | img => C.image (C.proj2 `o` f-tpl.2)
+         | img-pb => C.image (C.proj2 `o` so-pb.2)
+         | (x1, x2) => image-lemma-subobjects (C.proj2 `o` f-tpl.2) (C.proj2 `o` so-pb.2) inc1.1 (o-assoc *> pmap (C.proj2 `o`) inc1.2)
+         | img-inc-1 => image-lemma (C.proj2 `o` f-tpl.2) (C.proj2 `o` so-pb.2) inc1.1 (o-assoc *> pmap (C.proj2 `o`) inc1.2)
+         | img-inc-1' => image-lemma (C.proj2 `o` so-pb.2) (C.proj2 `o` f-tpl.2) inc1'.1 (o-assoc *> pmap (C.proj2 `o`) inc1'.2)
+         | pb-f' => pullback-lem pb-f eq
+         | pb-big => pullback-lemma (prod-lemma (IT TyF dom'') It) pb-f'
+         | img-pb-big => C.image (Pullback.pbProj2 {pb-big})
+         | (_, x3) => image-lemma-subobjects (C.proj2 `o` so-pb.2) (Pullback.pbProj2 {pb-big}) (id _) id-right
+         | img-inc-2 => image-lemma (C.proj2 `o` so-pb.2) (Pullback.pbProj2 {pb-big}) (id _) id-right
+         | img-inc-2' => image-lemma (Pullback.pbProj2 {pb-big}) (C.proj2 `o` so-pb.2)  (id _) id-right
+         | (h-im, is-pb) => C.image-stability (C.proj2 `o` in-f) It pb-big (C.image (C.proj2 `o` in-f)) (C.image (Pullback.pbProj2 {pb-big}))
+         | pb-final => C.pullback (Image.in {C.image (CartesianPrecat.proj2 C.∘ (IF TyF TeF FF form).2)}) (I TyF TeF term)
+         | so-final => pullback-of-subobj (I TyF TeF term) (\let img => C.image (CartesianPrecat.proj2 C.∘ (IF TyF TeF FF form).2) \in (img, Image.in {img}, Image.in-mono {img}))
+         | t1 => subobj-inclusion-transitivity x1 x2 x3 img-inc-1 img-inc-2
+         | t2 => subobj-inclusion-transitivity x1 x3 so-final t1 (Pullback.pbMap h-im x3.2 (Pullback.pbCoh {is-pb}), Pullback.pbBeta2)
+         | t1' => subobj-inclusion-transitivity x3 x2 x1 img-inc-2' img-inc-1'
+         | t2' => subobj-inclusion-transitivity so-final x3 x1 (Pullback.pbMap {is-pb} (Pullback.pbProj1 {pb-final}) (Pullback.pbProj2 {pb-final})
+                                                                    (Pullback.pbCoh {pb-final}), Pullback.pbBeta2) t1'
+    \in (t2, t2')
+  | FFalse => pullback-def-to-inclusions C.initial-stability
+  | Disj form1 form2 => pullback-def-to-inclusions
+      (C.bcoprod-stability (inclusions-to-pullback-def (lemma-substF form1 term)) (inclusions-to-pullback-def (lemma-substF form2 term)))
+  \where {
+    \func image-lemma {C : RegularPrecat} {A A' B : C} (f : Hom A B) (f' : Hom A' B) (h : Hom A A') (p : f' `o` h = f)
+      : \let img => C.image f |  img' => C.image f' \in subobj-inclusion (img, Image.in {img}, Image.in-mono {img}) (img', Image.in {img'}, Image.in-mono {img'}) =>
+      \let img => C.image f |  img' => C.image f' \in Image.map (Image.in {img'}) (Image.in-mono {img'})
+          (Image.im2 {img'} `o` h) (inv o-assoc *> rewrite (Image.im-comm {img'}) p)
 
---\func normalize-beta {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (t : Term P dom cod) : Term P dom cod \elim t
---  | Tuple p t1 t2 => Tuple p (normalize-beta t1) (normalize-beta t2)
---  | Param p t => Param p (normalize-beta t)
---  | Proj1 t => \case (normalize-beta t) \with {
---    | Tuple p1 t'1 t'2 => rewriteI (proj1-eq p1) t'1
---    | t' => Proj1 t'
---  }
---  | Proj2 t => \case (normalize-beta t) \with {
---    | Tuple p1 t'1 t'2 => rewriteI (proj2-eq p1) t'2
---    | t' => Proj2 t'
---  }
---  | unit p => unit p
---  | Var p => Var p
---
---\func lemma-beta {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
---                 {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
---                 {dom cod : Type TP} (t : Term P dom cod) : I tf f t = I tf f (normalize-beta t) \elim t
---  | Tuple p t1 t2 => rewrite (lemma-beta t1, lemma-beta t2) idp
---  | unit p => idp
---  | Proj1 t => cases (normalize-beta t arg addPath) \with {
---    | Tuple p1 t1 t2, q => rewrite (lemma-beta t, q, lemma1)
---        (transport (\lam xx => CartesianPrecat.proj1 C.∘ transportInv (\lam x0 => C.Hom (IT tf dom) (IT tf x0)) p1 (CartesianPrecat.pair (I tf f t1) (I tf f t2))
---          = transport (\lam x => C.Hom (IT tf dom) (IT tf x)) (proj1-eq xx) (I tf f t1)) (lemma2 p1) (lemma-proj-1 idp))
---    | Proj1 x, q => rewrite (lemma-beta t, q) idp
---    | Proj2 x, q => rewrite (lemma-beta t, q) idp
---    | Param p1 x, q => rewrite (lemma-beta t, q) idp
---    | Var p1, q => rewrite (lemma-beta t, q) idp
---    | unit p1, q => rewrite (lemma-beta t, q) idp
---  }
---  | Proj2 t => cases (normalize-beta t arg addPath) \with {
---    | Tuple p1 t1 t2, q => rewrite (lemma-beta t, q, lemma1)
---        (transport (\lam xx => CartesianPrecat.proj2 C.∘ transportInv (\lam x0 => C.Hom (IT tf dom) (IT tf x0)) p1 (CartesianPrecat.pair (I tf f t1) (I tf f t2))
---          = transport (\lam x => C.Hom (IT tf dom) (IT tf x)) (proj2-eq xx) (I tf f t2)) (lemma2 p1) (lemma-proj-2 idp))
---    | Proj1 x, q => rewrite (lemma-beta t, q) idp
---    | Proj2 x, q => rewrite (lemma-beta t, q) idp
---    | Param p1 x, q => rewrite (lemma-beta t, q) idp
---    | Var p1, q => rewrite (lemma-beta t, q) idp
---    | unit p1, q => rewrite (lemma-beta t, q) idp
---  }
---  | Param p t => rewrite (lemma-beta t) idp
---  | Var p => idp
---  \where {
---    \func eq-pair {TP : \Set} {A B A' B' : Type TP} (pA : A = A') (pB : B = B') : Prod A B = Prod A' B' =>
---      rewrite (pA, pB) idp
---
---    \func eq-pair-lemma {TP : \Set} {A B A' B' : Type TP} (p : Prod A B = Prod A' B')
---      : p = eq-pair (proj1-eq (inv p)) (proj2-eq (inv p)) => Path.inProp _ _
---
---    \func lemma-pair-transport-1 {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
---                                 {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
---                                 {dom A A' B B' : Type TP} (pA : A = A') (pB : B = B') (t1 : Term P dom A) (t2 : Term P dom B)
---      : transportInv (\lam x => Hom (IT tf x) (IT tf A')) (eq-pair pA pB) C.proj1 `o`C.pair (I tf f t1) (I tf f t2)
---      = transport (\lam x => Hom (IT tf dom) (IT tf x)) pA (I tf f t1) \elim pA, pB
---      | idp, idp => C.beta1 _ _
---
---    \func lemma-pair-transport-2 {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
---                                 {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
---                                 {dom A A' B B' : Type TP} (pA : A = A') (pB : B = B') (t1 : Term P dom A) (t2 : Term P dom B)
---      : transportInv (\lam x => Hom (IT tf x) (IT tf B')) (eq-pair pA pB) C.proj2 `o`C.pair (I tf f t1) (I tf f t2)
---      = transport (\lam x => Hom (IT tf dom) (IT tf x)) pB (I tf f t2) \elim pA, pB
---      | idp, idp => C.beta2 _ _
---
---    \func lemma-proj-1 {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
---                       {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
---                       {dom cod S TS A B : Type TP} (p : TS = Prod cod S) {p1 : TS = Prod A B}
---                       {t1 : Term P dom A} {t2 : Term P dom B}
---      : transportInv (\lam x0 => Hom (IT tf x0) (IT tf cod)) p CartesianPrecat.proj1 ∘
---    transportInv (\lam x0 => Hom (IT tf dom) (IT tf x0)) p1 (CartesianPrecat.pair (I tf f t1) (I tf f t2))
---      = transport (\lam x => Hom (IT tf dom) (IT tf x)) (proj1-eq (inv p *> p1)) (I tf f t1) \elim p1
---      | idp =>
---        \let pA => proj1-eq (inv p) | pB => proj2-eq (inv p) | s => eq-pair-lemma p
---             | s1 => lemma-pair-transport-1 {C} {TP} {P} {tf} {f} pA pB t1 t2
---        \in transport (\lam x => transportInv (\lam x0 => Hom (IT tf x0) (IT tf cod)) x C.proj1 ∘ C.pair (I tf f t1) (I tf f t2)
---          = transport (\lam x0 => Hom (IT tf dom) (IT tf x0)) (proj1-eq (inv p)) (I tf f t1)) (inv s) s1
---
---    \func lemma-proj-2 {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
---                       {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
---                       {dom cod S TS A B : Type TP} (p : TS = Prod S cod) {p1 : TS = Prod A B}
---                       {t1 : Term P dom A} {t2 : Term P dom B}
---      : transportInv (\lam x0 => Hom (IT tf x0) (IT tf cod)) p CartesianPrecat.proj2 ∘
---    transportInv (\lam x0 => Hom (IT tf dom) (IT tf x0)) p1 (CartesianPrecat.pair (I tf f t1) (I tf f t2))
---      = transport (\lam x => Hom (IT tf dom) (IT tf x)) (proj2-eq (inv p *> p1)) (I tf f t2) \elim p1
---      | idp =>
---        \let pA => proj1-eq (inv p) | pB => proj2-eq (inv p) | s => eq-pair-lemma p
---             | s1 => lemma-pair-transport-2 {C} {TP} {P} {tf} {f} pA pB t1 t2
---             | s2 => transport (\lam x => transportInv (\lam x0 => Hom (IT tf x0) (IT tf cod)) x C.proj2 ∘ C.pair (I tf f t1) (I tf f t2)
---               = transport (\lam x0 => Hom (IT tf dom) (IT tf x0)) (proj2-eq (inv p)) (I tf f t2)) (inv s) s1 \in s2
---
---    \func lemma1  {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
---                  {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
---                  {dom cod cod' : Type TP} {p : cod = cod'} {t : Term P dom cod}
---      : I tf f (transport (\lam x => Term P dom x) p t) = transport (\lam x => Hom (IT tf dom) (IT tf x)) p (I tf f t) \elim p
---      | idp => idp
---
---    \func lemma2 {A : \Type} {a a' : A} (p : a = a') : path (\lam _ => a) *> p = p \elim p
---      | idp => idp
---  }
---
---\func eta-long {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (t : Term P dom cod) : Term P dom cod \elim cod, t
---  | TParam p, Tuple p1 t1 t2 => \case p1
---  | TParam p, unit p1 => \case p1
---  | TParam p, Proj1 t => Proj1 (eta-long-skip t)
---  | TParam p, Proj2 t => Proj2 (eta-long-skip t)
---  | TParam p, Param p1 t => Param p1 (eta-long t)
---  | TParam p, Var p1 => Var p1
---  | Unit, t => unit idp
---  | Prod cod1 cod2, Tuple p t1 t2 => Tuple p (eta-long t1) (eta-long t2)
---  | Prod cod1 cod2, t => Tuple idp (Proj1 (eta-long-skip t)) (Proj2 (eta-long-skip t))
---  \where {
---    \func eta-long-skip {OP : \Set} {P : Type OP -> Type OP -> \Set} {dom cod : Type OP} (t : Term P dom cod) : Term P dom cod \elim t
---      | Proj1 t => Proj1 (eta-long-skip t)
---      | Proj2 t => Proj2 (eta-long-skip t)
---      | Param p1 t => Param p1 (eta-long t)
---      | Var p1 => Var p1
---      | Tuple p t1 t2 => Tuple p (eta-long t1) (eta-long t2)
---      | unit p => unit p
---  }
---
---\func lemma-eta {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
---                {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
---                {dom cod : Type TP} (t : Term P dom cod) : I tf f t = I tf f (eta-long t) \elim cod, t
---  | TParam p, Tuple p1 t1 t2 => \case p1
---  | TParam p, unit p1 => \case p1
---  | TParam p, Proj1 t => rewrite (lemma-eta-skip t) idp
---  | TParam p, Proj2 t => rewrite (lemma-eta-skip t) idp
---  | TParam p, Param p1 t => rewrite (lemma-eta t) idp
---  | TParam p, Var p1 => idp
---  | Unit, t => C.terminal-unique
---  | Prod cod1 cod2, Tuple p t1 t2 => rewrite (lemma-eta t1, lemma-eta t2) idp
---  | Prod cod cod1, unit p => \case p
---  | Prod cod cod1, Proj1 t => rewrite (lemma-eta-skip t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
---  | Prod cod cod1, Proj2 t => rewrite (lemma-eta-skip t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
---  | Prod cod cod1, Param p t => rewrite (lemma-eta t, inv C.pair-comp, C.pair-proj) (inv C.id-left)
---  | Prod cod cod1, Var p => rewrite (inv C.pair-comp, C.pair-proj) (inv C.id-left)
---  \where {
---    \func lemma-eta-skip {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {tf : TP -> C}
---                         {f : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT tf ctx') (IT tf T')}
---                         {dom cod : Type TP} (t : Term P dom cod) : I tf f t = I tf f (eta-long.eta-long-skip t) \elim t
---      | Proj1 t => rewrite (lemma-eta-skip t) idp
---      | Proj2 t => rewrite (lemma-eta-skip t) idp
---      | Param p1 t => rewrite (lemma-eta t) idp
---      | Var p1 => idp
---      | Tuple p t1 t2 => rewrite (lemma-eta t1, lemma-eta t2) idp
---      | unit p => idp
---  }
---
---\func equals-after-n-steps {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom cod : Type TP} (t1 t2 : Term P dom cod) (n : Nat) : \Type \elim n
---  | 0 => t1 = t2
---  | suc n => equals-after-n-steps (normalize-beta (eta-long t1)) (normalize-beta (eta-long t2)) n
---
---\func equals-after-n-steps-lemma {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> Type TP -> \Set} {TyF : TP -> C}
---                                 {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
---                                 {dom cod : Type TP} {t1 t2 : Term P dom cod} {n : Nat} (eq : equals-after-n-steps t1 t2 n)
---  : I TyF TeF t1 = I TyF TeF t2 \elim n
---  | 0 => pmap _ eq
---  | suc n => lemma-eta t1 *> lemma-beta (eta-long t1) *> equals-after-n-steps-lemma eq *> inv (lemma-eta t2 *> lemma-beta (eta-long t2))
+    \func image-lemma-subobjects {C : RegularPrecat} {A A' B : C} (f : Hom A B) (f' : Hom A' B) (h : Hom A A') (p : f' `o` h = f) : \Sigma (subobj B) (subobj B) =>
+      \let img => C.image f |  img' => C.image f' \in ((Image.im {img}, Image.in {img}, Image.in-mono {img}), (Image.im {img'}, Image.in {img'}, Image.in-mono {img'}))
+
+    \func pullback-lem {C : RegularPrecat} {x y1 z1 : C} {f : Hom x z1} {g g' : Hom y1 z1} (pb : Pullback f g) (p : g = g') : Pullback f g' pb pb.pbProj1 pb.pbProj2  \elim p
+      | idp => pb
+
+    \func prod-lemma {C : CartesianPrecat} (A : C) {B B' : C} (h : Hom B B')
+      : Pullback (C.proj2 {A} {B'}) h (C.Bprod A B) (C.pair (C.proj1 `o` id (C.Bprod A B)) (h `o` (C.proj2 `o` id _))) (C.proj2 {A} {B}) \cowith
+      | pbCoh => rewrite (C.beta2, id-right) idp
+      | pbMap {w} h1 h2 q => Product.tupleMap {Bprod A B} (\case \elim __ \with {
+        | 0 => C.proj1 `o` h1
+        | 1 => h2
+      })
+      | pbBeta1 {_}{_}{_}{p} => rewrite (C.pair-comp, id-right, C.beta1, id-right, o-assoc, C.beta2, inv p, inv C.pair-comp, C.pair-proj) id-left
+      | pbBeta2 => rewrite C.beta2 idp
+      | pbEta {_}{h1}{h2} p q => \let q' => rewrite (id-right, id-right) p | q'' => rewrite C.beta1 (o-assoc *> pmap (C.proj1 `o`) q' *> inv o-assoc) \in C.pair-unique q'' q
+  }
 
 \data Proof {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
             (PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set) (hyp f : Formula P FP dom)
@@ -302,13 +250,22 @@
   | tupleProof {f1 f2 : Formula P FP dom} (f = Conj f1 f2) (Proof PP hyp f1) (Proof PP hyp f2)
   | hypothesis (PP dom hyp f)
   | trueProof (f = FTrue)
+  | existsProof1 {dom' dom'' : Type TP} {f' : Formula P FP dom''} (p : dom = Prod dom' dom'')
+                 (f = rewrite p (substF f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (q : Proof PP (Exists (rewriteI p hyp)) f')
+  | existsProof2 {dom' : Type TP} {hyp' : Formula P FP (Prod dom' dom)} (hyp = Exists hyp') (Proof PP hyp' (substF f (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
+  | existsProofSubst {dom' : Type TP} {t : Term P dom dom'} {f' : Formula P FP (Prod dom' dom)} (hyp = substF f' (Tuple idp t (Var idp))) (f = Exists f')
+  | disjLeft {f' : Formula P FP dom} (f = Disj hyp f')
+  | disjRight {f' : Formula P FP dom} (f = Disj f' hyp)
+  | disjHyp {hyp' hyp'' : Formula P FP dom} (hyp = Disj hyp' hyp'') (Proof PP hyp' f) (Proof PP hyp'' f)
+  | absurdProof (hyp = FFalse)
 
-\func IP {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
-         (TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
-         {FP : Type TP -> \Set} (FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom))
-         {dom : Type TP} {PP : \Pi(dom : Type TP) -> Formula P FP dom ->  Formula P FP dom -> \Set}
-         (PF : \Pi(dom : Type TP) -> \Pi(hyp form : Formula P FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form))
-         {hyp form : Formula P FP dom} (proof : Proof PP hyp form) : subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form) \elim proof
+\func IP
+  {C : CoherentPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
+  (TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
+  {FP : Type TP -> \Set} (FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom))
+  {dom : Type TP} {PP : \Pi(dom : Type TP) -> Formula P FP dom ->  Formula P FP dom -> \Set}
+  (PF : \Pi(dom : Type TP) -> \Pi(hyp form : Formula P FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form))
+  {hyp form : Formula P FP dom} (proof : Proof PP hyp form) : subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form) \elim proof
   | idProof p => rewrite p (id _, id-right)
   | transProof proof1 proof2 =>
     subobj-inclusion-transitivity _ _ _ (IP TyF TeF FF PF proof1) (IP TyF TeF FF PF proof2)
@@ -363,6 +320,33 @@
          q *> p2))
   | hypothesis p => PF dom hyp form p
   | trueProof p => rewrite p ((IF TyF TeF FF hyp).2, id-left)
+  | existsProof1 {dom'} {dom''} {f'} p p1 proof => rewrite p1 (exists-lem1 {C}{TP}{P}{TyF}{TeF}{FP}{FF}{dom}{PP}{PF}{dom'}{dom''}{form}{hyp}{p}{f'}{p1}{proof})
+  | existsProof2 {dom'} {hyp'} p proof => rewrite p (
+    \let (in1, in2) => lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} form (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
+         | in3 => IP TyF TeF FF PF proof
+         | Iproj2 => I TyF TeF (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
+         | If => IF TyF TeF FF form
+         | Ih' => IF TyF TeF FF hyp'
+         | pb => C.pullback If.2 Iproj2
+         | img => C.image (C.proj2 `o` Ih'.2)
+         | x => Image.map {img} If.2 If.3 (Pullback.pbProj1 {pb} `o` in1.1 `o` in3.1) (inv o-assoc *> rewriteI (o-assoc, inv (Pullback.pbCoh {pb}))
+                                                                                                                 (o-assoc *> o-assoc *> o-assoc *> pmap (C.proj2 `o`) (id-left *> inv o-assoc *> pmap (`o` in3.1) in1.2 *> in3.2)))
+    \in x)
+  | existsProofSubst {dom'} {t} {f'} p p1 => rewrite (p, p1) (
+    \let
+      | (in1, in2) => lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' (Tuple idp t (Var idp))
+      | (x1, x2) => lemma-substF-subobjects {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' (Tuple idp t (Var idp))
+      | If' => IF TyF TeF FF f'
+      | Itpl => I TyF TeF (Tuple idp t (Var idp))
+      | pb => C.pullback If'.2 Itpl
+      | img => C.image (C.proj2 `o` If'.2)
+    \in subobj-inclusion-transitivity x1 x2 (IF TyF TeF FF (Exists f')) in1 (Image.im2 {img} `o` Pullback.pbProj1 {pb},
+                                                                             inv o-assoc *> rewrite (Image.im-comm {img}) (o-assoc *> rewrite (Pullback.pbCoh {pb}) (inv o-assoc *> rewrite C.beta2 id-left))))
+  | disjLeft p => rewrite p (Bcoprod.inl {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _})
+  | disjRight p => rewrite p (Bcoprod.inr {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _})
+  | disjHyp p proof1 proof2 => rewrite p (Bcoprod.map {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _} (IP TyF TeF FF PF proof1) (IP TyF TeF FF PF proof2))
+  | absurdProof p => rewrite p (Initial.map {PrecatWithFiniteCoproducts.initial {C.subobj-cat-with-coproducts _}})
+
 
   \where {
     \func inclusion-to-equalizer-lemma {C : FinCompletePrecat} {x y : C} {f g : Hom x y} {so : subobj x}
@@ -373,5 +357,24 @@
     \func inclusion-to-equalizer-lemma' {C : FinCompletePrecat} {x y : C} {f g : Hom x y} {so : subobj x} (p : f `o` so.2 = g `o` so.2)
       : subobj-inclusion so (C.equalizer f g, Equalizer.eql {C.equalizer f g}, \new Mono (Equalizer.eql {C.equalizer f g}) (Equalizer.eqMono {C.equalizer f g})) =>
       \let e => C.equalizer f g \in (Equalizer.eqMap {e} so.2 p, Equalizer.eqBeta {e} so.2 p)
+
+    \func exists-lem1 {C : CoherentPrecat} {TP : \Set} {P : Type TP -> Type TP -> \Set}
+                      {TyF : TP -> C} {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> C.Hom (IT TyF ctx') (IT TyF T')}
+                      {FP : Type TP -> \Set} {FF : \Pi (dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
+                      {dom : Type TP} {PP : \Pi (dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
+                      {PF : \Pi (dom : Type TP) -> \Pi (hyp form : Formula P FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form)}
+                      {dom' : Type TP} {dom'' : Type TP} {form : Formula P FP dom} {hyp : Formula P FP dom} {p : dom = Prod dom' dom''}
+                      {f' : Formula P FP dom''} {p1 : form = transportInv (Formula P FP) p (substF f' (Proj2 (Var idp)))}
+                      {proof : Proof PP (Exists (transport (Formula P FP) p hyp)) f'}
+      : subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF (transportInv (Formula P FP) p (substF f' (Proj2 (Var idp))))) \elim p
+      | idp =>
+        \let (in1, in2) => lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
+             | in3 => IP TyF TeF FF PF proof
+             | Iproj2 => I TyF TeF (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
+             | If' => IF TyF TeF FF f'
+             | pb => C.pullback If'.2 Iproj2
+             | img => C.image (CartesianPrecat.proj2 C.∘ (IF TyF TeF FF hyp).2)
+             | x => Pullback.pbMap {pb} (in3.1 `o` Image.im2 {img}) (IF TyF TeF FF hyp).2 (rewrite id-right (inv o-assoc *> rewrite in3.2 idp *> Image.im-comm {img}))
+        \in subobj-inclusion-transitivity _ (pullback-of-subobj Iproj2 If') _ (x, Pullback.pbBeta2) in2
   }
 
