@@ -137,6 +137,7 @@ public class StdExtension implements ArendExtension {
 
     provider.load(categoryLangMeta1);
     provider.load(categoryLangMeta1.fp);
+    provider.load(categoryLangMeta1.canonizer);
 
     provider.load(linearSolverMeta);
 

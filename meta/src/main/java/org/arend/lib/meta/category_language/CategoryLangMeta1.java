@@ -4,7 +4,6 @@ import org.arend.ext.concrete.ConcreteClause;
 import org.arend.ext.concrete.ConcreteFactory;
 import org.arend.ext.concrete.ConcreteParameter;
 import org.arend.ext.concrete.ConcreteSourceNode;
-import org.arend.ext.concrete.definition.FunctionKind;
 import org.arend.ext.concrete.expr.*;
 import org.arend.ext.core.context.CoreBinding;
 import org.arend.ext.core.context.CoreParameter;
@@ -22,8 +21,6 @@ import org.arend.ext.util.Pair;
 import org.arend.lib.StdExtension;
 import org.arend.lib.util.Utils;
 import org.arend.lib.util.Values;
-import org.arend.term.concrete.Concrete;
-import org.arend.term.concrete.SubstConcreteVisitor;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -37,6 +34,30 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
     ConcreteSourceNode marker;
     private final StdExtension ext;
     public FieldsProvider fp = new FieldsProvider();
+
+    @Dependency(module = "CategoryLanguage.Util", name = "sigma")
+    private CoreFunctionDefinition sigma;
+    @Dependency(module = "CategoryLanguage.Util", name = "wrapFTrueDom")
+    private CoreFunctionDefinition wrapFTrueDom;
+    @Dependency(module = "CategoryLanguage.Util", name = "wrapFFalseDom")
+    private CoreFunctionDefinition wrapFFalseDom;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "HeytingPrecat")
+    private CoreClassDefinition heytingPrecat;
+    @Dependency(module = "CategoryLanguage.Util", name = "subobj")
+    private CoreFunctionDefinition subobj;
+    @Dependency(module = "CategoryLanguage.Util", name = "subobj-inclusion")
+    private CoreFunctionDefinition subobjInclusion;
+    @Dependency(module = "CategoryLanguage.Util", name = "disjunction")
+    private CoreFunctionDefinition disjunction;
+    @Dependency(module = "Logic")
+    private CoreDataDefinition TruncP;
+    @Dependency(module = "Logic", name = "Empty")
+    private CoreDataDefinition Empty;
+    @Dependency(module = "CategoryLanguage.Util", name = "True")
+    private CoreDataDefinition True;
+    @Dependency(module = "CategoryLanguage.Util", name = "True.cons")
+    private CoreConstructor cons;
+
 
     public CategoryLangMeta1(StdExtension ext) {
         this.ext = ext;
@@ -122,36 +143,59 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
         return -1;
     }
 
-    private List<Pair<Pair<CoreExpression, Pair<CoreExpression, CoreExpression>>, Values<CoreReferenceExpression>>> hypothesisParameters;
+    private static class ProofParamData {
+        CoreBinding binding;
+        CoreExpression domainCore;
+        CoreExpression hypCore;
+        CoreExpression formCore;
+        Values<CoreReferenceExpression> values;
+        FieldsProvider.ExpressionAndPattern hypConstructed;
+        FieldsProvider.ExpressionAndPattern formConstructed;
+        ArrayList<ArendRef> pathRefs;
 
-    private void addHypothesisParam(CoreExpression dom, CoreExpression hyp, CoreExpression form, CoreReferenceExpression param) {
-        var v = hypothesisParameters.stream()
-                .filter(x -> compare(x.proj1.proj1, dom) && compare(x.proj1.proj2.proj1, hyp)
-                        && compare(x.proj1.proj2.proj2, form))
-                .map(x -> x.proj2).collect(Collectors.toList());
+        public ProofParamData(CoreBinding binding, CoreExpression domainCore, CoreExpression hypCore, CoreExpression formCore, Values<CoreReferenceExpression> values) {
+            this.binding = binding;
+            this.domainCore = domainCore;
+            this.hypCore = hypCore;
+            this.formCore = formCore;
+            this.values = values;
+        }
+    }
+
+    private List<ProofParamData> proofParameters;
+
+    private void addProofParam(CoreBinding binding, CoreExpression dom, CoreExpression hyp, CoreExpression form, CoreReferenceExpression param) {
+        var v = proofParameters.stream()
+                .filter(x -> compare(x.domainCore, dom) && compare(x.hypCore, hyp)
+                        && compare(x.formCore, form))
+                .map(x -> x.values).collect(Collectors.toList());
         if (v.size() == 0) {
             var values = new Values<CoreReferenceExpression>(typechecker, marker);
             values.addValue(param);
-            hypothesisParameters.add(new Pair<>(new Pair<>(dom, new Pair<>(hyp, form)), values));
+            var paramData = new ProofParamData(binding, dom, hyp, form, values);
+            ctxVars.add(0, binding);
+            ctxTypes.add(0, dom);
+            ArrayList<ArendRef> pathRefs = new ArrayList<>();
+            paramData.hypConstructed = constructFormula(hyp, pathRefs);
+            paramData.formConstructed = constructFormula(form, pathRefs);
+            paramData.pathRefs = pathRefs;
+            ctxVars.remove(0);
+            ctxTypes.remove(0);
+            proofParameters.add(paramData);
         } else {
             v.get(0).addValue(param);
         }
         refs.add(new Pair<>(param, fac.local(param.getBinding().getName())));
     }
 
-    private Pair<Pair<CoreExpression, Pair<CoreExpression, CoreExpression>>, Values<CoreReferenceExpression>> findHypothesis(CoreReferenceExpression param) {
-        for (var x : hypothesisParameters) {
-            if (x.proj2.getIndex(param) != -1) {
+    private ProofParamData findProofParam(CoreReferenceExpression param) {
+        for (var x : proofParameters) {
+            if (x.values.getIndex(param) != -1) {
                 return x;
             }
         }
         return null;
     }
-
-    @Dependency(module = "CategoryLanguage.Util", name = "sigma")
-    private CoreFunctionDefinition sigma;
-    @Dependency(module = "CategoryLanguage.Util", name = "wrapType")
-    private CoreFunctionDefinition wrapType;
 
 
     private boolean isType(CoreExpression expr) {
@@ -167,12 +211,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 bindings.add(link.getBinding());
                 link = link.getNext();
             }
-            boolean res = isType(bindings.get(bindings.size() - 1).getTypeExpr());
-            for (int i = bindings.size() - 2; i >= 0; i--) {
-                var cur = isType(bindings.get(i).getTypeExpr());
-                res = cur && res;
-            }
-            return res;
+            return bindings.stream().allMatch(x -> isType(x.getTypeExpr()));
         }
         if (expr instanceof CoreReferenceExpression) { // TParam
             return (typesParameters.getIndex(expr) != -1);
@@ -180,8 +219,12 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
         return false;
     }
 
-    private CoreExpression wrapType(CoreExpression type) {
-        return typechecker.typecheck(fac.app(fac.ref(wrapType.getRef()), fac.arg(fac.core(type.computeTyped()), true)), null).getExpression();
+    private CoreExpression wrapFTrueDom(CoreExpression type) {
+        return typechecker.typecheck(fac.app(fac.ref(wrapFTrueDom.getRef()), fac.arg(fac.core(type.computeTyped()), true)), null).getExpression();
+    }
+
+    private CoreExpression wrapFFalseDom(CoreExpression type) {
+        return typechecker.typecheck(fac.app(fac.ref(wrapFFalseDom.getRef()), fac.arg(fac.core(type.computeTyped()), true)), null).getExpression();
     }
 
     private void parse(CoreParameter parameter) {
@@ -189,30 +232,20 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
         var ref = parameter.getBinding().makeReference();
         if (type instanceof CoreUniverseExpression) { // type parameter
             addTypeParam(ref);
-        } else if (type instanceof CorePiExpression typePi) { // functional symbol or predicate or hypothesis
+        } else if (type instanceof CorePiExpression typePi) {
             var codomain = typePi.getCodomain();
             if (codomain instanceof CoreUniverseExpression) { // predicate parameter
                 var domain = typePi.getParameters().getTypeExpr();
                 addPredicateParam(domain, ref);
             } else if (isType(codomain)) { // functional symbol
                 addTermParam(typePi.getParameters().getTypeExpr(), codomain, ref);
-            } else if (codomain instanceof CorePiExpression codomainPi) { // hypothesis with hyp and form
+            } else if (codomain instanceof CorePiExpression codomainPi) { // proof parameter
+                var binding = typePi.getParameters().getBinding();
                 var domain = typePi.getParameters().getTypeExpr();
                 var hyp = codomainPi.getParameters().getTypeExpr();
                 var form = codomainPi.getCodomain();
-                addHypothesisParam(domain, hyp, form, ref);
-            } else if (isType(typePi.getParameters().getTypeExpr())) { // hypothesis as just formula
-                var domain = typePi.getParameters().getTypeExpr();
-                addHypothesisParam(domain, wrapType(domain), codomain, ref);
-            } else { // hypothesis with hyp and form without context
-                var hyp = typePi.getParameters().getTypeExpr();
-                var form = typePi.getCodomain();
-                addHypothesisParam(sigma.getResultType(), hyp, form, ref);
+                addProofParam(binding, domain, hyp, form, ref);
             }
-        } else if (isType(type)) { // constant symbol
-            addTermParam(sigma.getResultType(), type, ref);
-        } else { // hypothesis as just formula without context
-            addHypothesisParam(sigma.getResultType(), wrapType(sigma.getResultType()), type, ref);
         }
     }
 
@@ -228,6 +261,12 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
         }
         return lam;
     }
+
+
+    List<CoreBinding> ctxVars = new ArrayList<>();
+    List<CoreExpression> ctxTypes = new ArrayList<>();
+    List<CoreBinding> ctxProofs = new ArrayList<>();
+    List<CoreExpression> ctxHyps = new ArrayList<>();
 
 
     private ConcreteExpression listMap(List<? extends ConcreteExpression> args) {
@@ -252,7 +291,6 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
 
         return fac.letExpr(false, false, List.of(TPclause, TyFclause), expr);
     }
-
 
     private FieldsProvider.ExpressionAndPattern constructType(CoreExpression expr) {
         if (expr instanceof CoreInferenceReferenceExpression expr1) {
@@ -283,11 +321,67 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
         return null;
     }
 
-    private FieldsProvider.ExpressionAndPattern constructTerm(CoreExpression expr, CoreExpression ctx) {
-        return constructTerm(expr, ctx, new ArrayList<>());
+    private FieldsProvider.ExpressionAndPattern constructTerm(CoreExpression expr) {
+        return constructTerm(expr, new ArrayList<>());
     }
 
-    private FieldsProvider.ExpressionAndPattern constructTerm(CoreExpression expr, CoreExpression ctx, List<ArendRef> pathsRefs) {
+    private List<FieldsProvider.ExpressionAndPattern> ctxTypesCumulative() {
+        List<FieldsProvider.ExpressionAndPattern> types = new ArrayList<>();
+        ctxTypes.forEach(x -> types.add(constructType(x)));
+        List<FieldsProvider.ExpressionAndPattern> typesCumulative = new ArrayList<>();
+        FieldsProvider.ExpressionAndPattern cur = types.get(types.size() - 1);
+        typesCumulative.add(cur);
+        for (int i = types.size() - 2; i >= 0; i--) {
+            typesCumulative.add(fp.prodT(types.get(i), cur));
+            cur = fp.prodT(types.get(i), cur);
+        }
+        return typesCumulative;
+    }
+
+    private FieldsProvider.ExpressionAndPattern projTerm(CoreBinding v, List<ArendRef> pathsRefs) {
+        List<FieldsProvider.ExpressionAndPattern> types = new ArrayList<>();
+        ctxTypes.forEach(x -> types.add(constructType(x)));
+        List<FieldsProvider.ExpressionAndPattern> typesCumulative = ctxTypesCumulative();
+        var term = fp.var(typesCumulative.get(0), pathsRefs);
+        int ind = ctxVars.indexOf(v);
+        boolean last = ctxVars.size() == ind + 1;
+        int Sind = 0;
+        while (ind > 0) {
+            term = fp.proj2(types.get(Sind++), term, pathsRefs);
+            ind--;
+        }
+        return last ? term : fp.proj1(typesCumulative.get(typesCumulative.size() - 1 - (Sind + 1)), term, pathsRefs);
+    }
+
+    private List<FieldsProvider.ExpressionAndPattern> ctxHypsCumulative() {
+        List<FieldsProvider.ExpressionAndPattern> types = new ArrayList<>();
+        ctxHyps.forEach(x -> types.add(constructFormula(x)));
+        List<FieldsProvider.ExpressionAndPattern> typesCumulative = new ArrayList<>();
+        FieldsProvider.ExpressionAndPattern cur = types.get(types.size() - 1);
+        typesCumulative.add(cur);
+        for (int i = types.size() - 2; i >= 0; i--) {
+            typesCumulative.add(fp.conj(types.get(i), cur));
+            cur = fp.conj(types.get(i), cur);
+        }
+        return typesCumulative;
+    }
+
+    private ConcreteExpression projProof(CoreBinding v) {
+        List<FieldsProvider.ExpressionAndPattern> types = new ArrayList<>();
+        ctxHyps.forEach(x -> types.add(constructFormula(x)));
+        List<FieldsProvider.ExpressionAndPattern> typesCumulative = ctxHypsCumulative();
+        var term = fp.idProof(ctxTypesCumulative().get(0).expr, typesCumulative.get(0).expr);
+        int ind = ctxProofs.indexOf(v);
+        boolean last = ctxProofs.size() == ind + 1;
+        int Sind = 0;
+        while (ind > 0) {
+            term = fp.proj2Proof(types.get(Sind++).expr, term);
+            ind--;
+        }
+        return last ? term : fp.proj1Proof(typesCumulative.get(typesCumulative.size() - 1 - (Sind + 1)).expr, term);
+    }
+
+    private FieldsProvider.ExpressionAndPattern constructTerm(CoreExpression expr, List<ArendRef> pathsRefs) {
         if (expr instanceof CoreInferenceReferenceExpression) {
             expr = ((CoreInferenceReferenceExpression) expr).getSubstExpression();
         }
@@ -299,34 +393,30 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 var dom = ((CorePiExpression) type).getParameters().getTypeExpr();
                 var cod = ((CorePiExpression) type).getCodomain();
                 if (fun instanceof CoreReferenceExpression funRef)
-                    return fp.param(constructTerm(arg, ctx, pathsRefs), constructType(cod), constructType(dom),
+                    return fp.param(constructTerm(arg, pathsRefs), constructType(cod), constructType(dom),
                             findTermNumber(dom, cod, funRef), pathsRefs);
             }
-        } // Parameter
-        if (expr instanceof CoreReferenceExpression) { // Var or constant
-            var type = expr.computeType();
-            if (findTermNumber(sigma.getResultType(), type, (CoreReferenceExpression) expr) != -1) { // constant
-                return fp.param(fp.unit(constructType(ctx), pathsRefs), constructType(type), fp.unitT(),
-                        findTermNumber(sigma.getResultType(), type, (CoreReferenceExpression) expr), pathsRefs);
-            }
-            return fp.var(constructType(type), pathsRefs);
-        } // Var or constant
+        }
+        if (expr instanceof CoreReferenceExpression exprRef) { // Var
+            var ref = exprRef.getBinding();
+            return projTerm(ref, pathsRefs);
+        }
         if (expr instanceof CoreTupleExpression) { // unit or Tuple
             var fields = ((CoreTupleExpression) expr).getFields();
             if (fields.size() == 0) {
-                return fp.unit(constructType(ctx), pathsRefs);
+                return fp.unit(ctxTypesCumulative().get(0), pathsRefs);
             }
-            var res = constructTerm(fields.get(fields.size() - 1), ctx, pathsRefs);
+            var res = constructTerm(fields.get(fields.size() - 1), pathsRefs);
             var resType = constructType(fields.get(fields.size() - 1).computeType());
             for (int i = fields.size() - 2; i >= 0; i--) {
-                var cur = constructTerm(fields.get(i), ctx, pathsRefs);
+                var cur = constructTerm(fields.get(i), pathsRefs);
                 var curType = constructType(fields.get(i).computeType());
 
                 res = fp.tuple(cur, res, curType, resType, pathsRefs);
                 resType = fp.prodT(curType, resType);
             }
             return res;
-        } // unit or Tuple
+        }
         if (expr instanceof CoreProjExpression) { // Proj
             var type = ((CoreProjExpression) expr).getExpression().computeType();
             var link = ((CoreSigmaExpression) type).getParameters();
@@ -344,9 +434,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 typesCumulative.add(fp.prodT(types.get(i), cur));
                 cur = fp.prodT(types.get(i), cur);
             }
-
-            var term = constructTerm(((CoreProjExpression) expr).getExpression(), ctx, pathsRefs);
-
+            var term = constructTerm(((CoreProjExpression) expr).getExpression(), pathsRefs);
             int ind = ((CoreProjExpression) expr).getField();
             boolean last = n == ind + 1;
             int Sind = 0;
@@ -355,15 +443,15 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 ind--;
             }
             return last ? term : fp.proj1(typesCumulative.get(typesCumulative.size() - 1 - (Sind + 1)), term, pathsRefs);
-        } // Proj
+        }
         return null;
     }
 
-    private FieldsProvider.ExpressionAndPattern constructFormula(CoreExpression expr, CoreExpression ctx) {
-        return constructFormula(expr, ctx, new ArrayList<>());
+    private FieldsProvider.ExpressionAndPattern constructFormula(CoreExpression expr) {
+        return constructFormula(expr, new ArrayList<>());
     }
 
-    private FieldsProvider.ExpressionAndPattern constructFormula(CoreExpression expr, CoreExpression ctx, List<ArendRef> pathsRefs) {
+    private FieldsProvider.ExpressionAndPattern constructFormula(CoreExpression expr, List<ArendRef> pathsRefs) {
         if (expr instanceof CoreSigmaExpression) { // conjunction
             var link = ((CoreSigmaExpression) expr).getParameters();
             try {
@@ -375,36 +463,86 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 bindings.add(link.getBinding());
                 link = link.getNext();
             }
-            var res = constructFormula(bindings.get(bindings.size() - 1).getTypeExpr(), ctx, pathsRefs);
+            var res = constructFormula(bindings.get(bindings.size() - 1).getTypeExpr(), pathsRefs);
             for (int i = bindings.size() - 2; i >= 0; i--) {
-                var cur = constructFormula(bindings.get(i).getTypeExpr(), ctx, pathsRefs);
+                var cur = constructFormula(bindings.get(i).getTypeExpr(), pathsRefs);
                 res = fp.conj(cur, res);
             }
             return res;
         }
-        if (expr instanceof CoreFunCallExpression) {
-            if (((CoreFunCallExpression) expr).getDefinition() == ext.prelude.getEquality()) { //equality
+        if (expr instanceof CoreFunCallExpression funCall) {
+            if (funCall.getDefinition() == ext.prelude.getEquality()) { //equality
                 var eq = Utils.toEquality(expr, typechecker.getErrorReporter(), marker);
                 var a = eq.getDefCallArguments().get(1);
                 var b = eq.getDefCallArguments().get(2);
                 var T = a.computeType();
-                return fp.Eq(constructTerm(a, ctx, pathsRefs), constructTerm(b, ctx, pathsRefs), constructType(T));
+                return fp.Eq(constructTerm(a, pathsRefs), constructTerm(b, pathsRefs), constructType(T));
             }
-            if (((CoreFunCallExpression) expr).getDefinition() == wrapType) { //FTrue
-                var type = ((CoreFunCallExpression) expr).getDefCallArguments().get(0);
-                return fp.ftrue(constructType(type));
+
+            if (funCall.getDefinition() == disjunction) { // Disj
+                var args = funCall.getDefCallArguments();
+                var a = args.get(0);
+                var b = args.get(0);
+                return fp.disj(constructFormula(a, pathsRefs), constructFormula(b, pathsRefs));
             }
         }
 
-        if (expr instanceof CoreAppExpression) { // Param
-            var fun = ((CoreAppExpression) expr).getFunction();
-            var arg = ((CoreAppExpression) expr).getArgument();
+        if (expr instanceof CoreAppExpression appExpr) {
+            var fun = appExpr.getFunction();
+            var arg = appExpr.getArgument();
             var type = fun.computeType();
-            if (type instanceof CorePiExpression) {
+            if (type instanceof CorePiExpression piType) {
                 if (fun instanceof CoreReferenceExpression funRef) {
-                    var dom1 = ((CorePiExpression) type).getParameters().getTypeExpr();
-                    return fp.fparam(findPredicateNumber(dom1, funRef), constructTerm(arg, ctx, pathsRefs), constructType(dom1));
+                    var dom1 = piType.getParameters().getTypeExpr();
+                    return fp.fparam(findPredicateNumber(dom1, funRef), constructTerm(arg, pathsRefs), constructType(dom1));
                 }
+            }
+        }
+
+        if (expr instanceof CorePiExpression piExpr) {
+            var paramType = piExpr.getParameters().getTypeExpr();
+            if (isType(paramType)) { // Forall
+                var var = piExpr.getParameters().getBinding();
+                ctxVars.add(0, var);
+                ctxTypes.add(0, paramType);
+                var res = constructFormula(piExpr.getCodomain(), pathsRefs);
+                ctxVars.remove(0);
+                ctxTypes.remove(0);
+                return fp.forall(constructType(paramType), res);
+            } else { // Impl
+                var var = piExpr.getParameters().getBinding();
+                ctxProofs.add(0, var);
+                ctxHyps.add(0, paramType);
+                var res = constructFormula(piExpr.getCodomain(), pathsRefs);
+                ctxProofs.remove(0);
+                ctxHyps.remove(0);
+                return fp.impl(constructFormula(paramType, pathsRefs), res);
+            }
+        }
+
+        if (expr instanceof CoreDataCallExpression dataCall) {
+
+
+            if (dataCall.getDefinition() == ext.TruncP) { // Exists
+                var args = dataCall.getDefCallArguments();
+                if (args instanceof CoreSigmaExpression sigmaExpr) {
+                    var var = sigmaExpr.getParameters().getBinding();
+                    var paramType = sigmaExpr.getParameters().getTypeExpr();
+                    var form = sigmaExpr.getParameters().getNext().getTypeExpr();
+                    ctxVars.add(0, var);
+                    ctxTypes.add(0, paramType);
+                    var res = constructFormula(form, pathsRefs);
+                    ctxVars.remove(0);
+                    ctxTypes.remove(0);
+                    return fp.exists(constructType(paramType), res);
+                }
+            }
+
+            if (dataCall.getDefinition() == True) {
+                return fp.ftrue(ctxTypesCumulative().get(0));
+            }
+            if (dataCall.getDefinition() == Empty) {
+                return fp.ffalse(ctxTypesCumulative().get(0));
             }
         }
         return null;
@@ -495,7 +633,6 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
 
     @Dependency(module = "CategoryLanguage.Util", name = "Ih")
     private CoreFunctionDefinition Ih;
-
     @Dependency(module = "CategoryLanguage.Util", name = "Isub")
     private CoreFunctionDefinition Isub;
 
@@ -553,34 +690,26 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
     @Dependency(module = "CategoryLanguage.Util", name = "rewriteFunc")
     private CoreFunctionDefinition RewriteFunc;
 
-    private ConcreteExpression constructHypothesislam(boolean onlySet) {
+    private ConcreteExpression constructProofslam(boolean onlySet) {
         List<ConcreteClause> clauses = new ArrayList<>();
-        var all = hypothesisParameters;
+        var all = proofParameters;
         for (var p : all) {
-            var domExpr = p.proj1.proj1;
-            var hyp = p.proj1.proj2.proj1;
-            var form = p.proj1.proj2.proj2;
-            var params = p.proj2;
-            var domPat = constructType(domExpr).pattern;
-            ArrayList<ArendRef> pathRefs = new ArrayList<>();
-            var hypPat = constructFormula(hyp, domExpr, pathRefs).pattern;
-            var formPat = constructFormula(form, domExpr, pathRefs).pattern;
-
+            var domPat = constructType(p.domainCore).pattern;
             ConcreteClause clause;
             if (onlySet) {
-                clause = fac.clause(List.of(domPat, hypPat, formPat),
+                clause = fac.clause(List.of(domPat, p.hypConstructed.pattern, p.formConstructed.pattern),
                         fac.app(fac.ref(ext.prelude.getFin().getRef()),
-                                fac.arg(fac.number(params.getValues().size()), true)));
+                                fac.arg(fac.number(p.values.getValues().size()), true)));
             } else {
                 var nLocal = fac.local("n");
-                var args = params.getValues().stream()
+                var args = p.values.getValues().stream()
                         .map(x -> fac.ref(getRef(x))).collect(Collectors.toList());
                 var res = fac.app(listMap(args), fac.arg(fac.ref(nLocal), true));
-                for (var path : pathRefs) {
+                for (var path : p.pathRefs) {
                     var idpEq = fac.app(fac.ref(TypeIsSet.getRef()), fac.arg(fac.ref(path), true));
                     res = fac.app(fac.ref(RewriteFunc.getRef()), fac.arg(idpEq, true), fac.arg(res, true));
                 }
-                clause = fac.clause(List.of(domPat, hypPat, formPat, fac.refPattern(nLocal, null)), res);
+                clause = fac.clause(List.of(domPat, p.hypConstructed.pattern, p.formConstructed.pattern, fac.refPattern(nLocal, null)), res);
             }
             clauses.add(clause);
         }
@@ -608,11 +737,11 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
     @Dependency(module = "CategoryLanguage.Util", name = "IsubInc")
     private CoreFunctionDefinition IsubInc;
 
-    private ConcreteExpression constructHypothesisLets(ConcreteExpression expr) {
+    private ConcreteExpression constructProofsLets(ConcreteExpression expr) {
         var typeType = fac.app(fac.ref(fp.Type.getRef()), fac.arg(fac.ref(fp.TP), true));
 
-        var PPlam = constructHypothesislam(true);
-        var PFlam = constructHypothesislam(false);
+        var PPlam = constructProofslam(true);
+        var PFlam = constructProofslam(false);
 
         var domLocal1 = fac.local("dom");
         var formulaType1 = fac.app(fac.ref(fp.Formula.getRef()), fac.arg(fac.ref(fp.P), true),
@@ -651,89 +780,134 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
     private CoreFunctionDefinition inv;
     @Dependency(module = "Paths", name = "pmap")
     private CoreFunctionDefinition pmap;
-
     @Dependency(module = "CategoryLanguage.Util", name = "param-var")
     private CoreFunctionDefinition paramVar;
 
-    CoreBinding x;
-    CoreExpression ctx;
-    CoreBinding p;
-    CoreExpression pType;
+    private ConcreteExpression constructFullProof(CoreExpression expr) {
+        if (expr instanceof CoreLamExpression exprLam) {
+            var paramType = exprLam.getParameters().getTypeExpr();
+            var var = exprLam.getParameters().getBinding();
+            if (exprLam.getBody() instanceof CoreLamExpression exprLamLam) {
+                ctxVars.add(0, var);
+                ctxTypes.add(0, paramType);
+                var paramType1 = exprLamLam.getParameters().getTypeExpr();
+                var var1 = exprLamLam.getParameters().getBinding();
+                ctxProofs.add(0, var1);
+                ctxHyps.add(0, paramType1);
+                var res = constructProof(exprLamLam.getBody());
+                ctxHyps.remove(0);
+                ctxProofs.remove(0);
+                ctxTypes.remove(0);
+                ctxVars.remove(0);
+                return res;
+            }
+        }
+        return null;
+    }
 
     private ConcreteExpression constructProof(CoreExpression expr) {
+
+        if (expr instanceof CoreLamExpression exprLam) {
+            var paramType = exprLam.getParameters().getTypeExpr();
+            if (isType(paramType)) { // forall abstraction
+                var var = exprLam.getParameters().getBinding();
+                ctxVars.add(0, var);
+                ctxTypes.add(0, paramType);
+                var res = constructProof(exprLam.getBody());
+                ctxVars.remove(0);
+                ctxTypes.remove(0);
+                return fp.abstrForallProof(res);
+            } else { // impl abstraction
+                var var = exprLam.getParameters().getBinding();
+                ctxProofs.add(0, var);
+                ctxHyps.add(0, paramType);
+                var res = constructProof(exprLam.getBody());
+                ctxProofs.remove(0);
+                ctxHyps.remove(0);
+                return fp.abstrImplProof(res);
+            }
+        }
+
+        if (expr instanceof CoreAppExpression exprApp) {
+            var func = exprApp.getFunction();
+            var arg = exprApp.getArgument();
+
+            if (func instanceof CoreAppExpression funcApp) {
+                var func1 = funcApp.getFunction();
+                if (func1 instanceof CoreReferenceExpression && findProofParam((CoreReferenceExpression) func1) != null) { // applying proof parameter
+                    var proofParamData = findProofParam((CoreReferenceExpression) func1);
+                    int n = proofParamData.values.getIndex((CoreReferenceExpression) func1);
+                    return fp.paramProof(proofParamData.hypConstructed.expr, proofParamData.formConstructed.expr,
+                            constructTerm(funcApp.getArgument()).expr, constructProof(arg), n);
+                }
+            }
+
+            if (isType(arg.computeType())) { // forall application
+                return fp.appForallProof(constructProof(func), constructTerm(arg).expr);
+            } else { // impl application
+                return fp.appImplProof(constructProof(func), constructProof(arg));
+            }
+        }
+
+
         if (expr instanceof CoreFunCallExpression proofFunCall) {
             var fun = proofFunCall.getDefinition();
             var args = proofFunCall.getDefCallArguments();
             if (fun == transport) {
                 var T = args.get(0);
                 var f1 = args.get(1);
-                if (f1 instanceof CoreInferenceReferenceExpression) {
-                    f1 = ((CoreInferenceReferenceExpression) f1).getSubstExpression();
-                }
-                CoreExpression f1Ctx = null;
                 if (f1 instanceof CoreLamExpression f1Lam) {
-                    f1Ctx = f1Lam.getParameters().getTypeExpr();
-                    f1 = f1Lam.getBody();
+                    var var = f1Lam.getParameters().getBinding();
+                    var paramType = var.getTypeExpr();
+                    ctxVars.add(0, var);
+                    ctxTypes.add(0, paramType);
+                    var form = constructFormula(f1Lam.getBody());
+                    ctxVars.remove(0);
+                    ctxTypes.remove(0);
+                    var a = args.get(2);
+                    var a1 = args.get(3);
+                    var eqProof = args.get(4);
+                    var proof = args.get(5);
+                    return fp.transportProof(ctxHypsCumulative().get(0).expr, constructType(T).expr, constructTerm(a).expr,
+                            constructTerm(a1).expr, form.expr, constructProof(eqProof), constructProof(proof));
                 }
-                if (f1 instanceof CoreReferenceExpression) {
-                    var type = f1.computeType();
-                    if (type instanceof CorePiExpression typePi) {
-                        f1Ctx = typePi.getParameters().getTypeExpr();
-                    }
-                }
-                var a = args.get(2);
-                var a1 = args.get(3);
-                var eqProof = args.get(4);
-                var proof = args.get(5);
-                return fp.transportProof(constructFormula(pType, ctx).expr, constructType(T).expr, constructTerm(a, ctx).expr,
-                        constructTerm(a1, ctx).expr, constructFormula(f1, f1Ctx).expr, constructProof(eqProof), constructProof(proof));
-            } // transport
+            }
             if (fun == pathConcat) {
                 var a = args.get(1);
                 var b = args.get(2);
                 var c = args.get(3);
                 var abEqProof = args.get(4);
                 var bcEqProof = args.get(5);
-                return fp.concatProof(constructTerm(a, ctx).expr, constructTerm(b, ctx).expr,
-                        constructTerm(c, ctx).expr, constructProof(abEqProof), constructProof(bcEqProof));
-            } // equality conctenation
+                return fp.concatProof(constructTerm(a).expr, constructTerm(b).expr,
+                        constructTerm(c).expr, constructProof(abEqProof), constructProof(bcEqProof));
+            }
             if (fun == inv) {
                 var a = args.get(1);
                 var b = args.get(2);
                 var eqProof = args.get(3);
-                return fp.invProof(constructTerm(a, ctx).expr, constructTerm(b, ctx).expr, constructProof(eqProof));
-            } // equality inversion
+                return fp.invProof(constructTerm(a).expr, constructTerm(b).expr, constructProof(eqProof));
+            }
             if (fun == pmap) {
                 var h = args.get(2);
                 var a = args.get(3);
                 var b = args.get(4);
                 var eqProof = args.get(5);
-                if (h.computeType() instanceof CorePiExpression) {
-                    var hCtx = ((CorePiExpression) h.computeType()).getParameters().getTypeExpr();
-                    var hType = ((CorePiExpression) h.computeType()).getCodomain();
-                    ConcreteExpression hTerm = null;
-                    if (h instanceof CoreInferenceReferenceExpression) {
-                        h = ((CoreInferenceReferenceExpression) h).getSubstExpression();
-                    }
-                    if (h instanceof CoreReferenceExpression) {
-                        int n = findTermNumber(hCtx, hType, (CoreReferenceExpression) h);
-                        hTerm = fac.app(fac.ref(paramVar.getRef()), fac.arg(fac.ref(fp.TP), true), fac.arg(fac.ref(fp.P), true),
-                                fac.arg(constructType(hCtx).expr, true), fac.arg(constructType(hType).expr, true), fac.arg(fac.number(n), true));
-                    }
-                    if (h instanceof CoreLamExpression hLam) {
-                        hCtx = hLam.getParameters().getTypeExpr();
-                        hTerm = constructTerm(hLam.getBody(), hCtx).expr;
-                    }
-
-                    return fp.pmapProof(constructTerm(a, ctx).expr, constructTerm(b, ctx).expr,
+                if (h instanceof CoreLamExpression hLam) {
+                    var var = hLam.getParameters().getBinding();
+                    var paramType = var.getTypeExpr();
+                    ctxVars.add(0, var);
+                    ctxTypes.add(0, paramType);
+                    var hTerm = constructTerm(hLam.getBody()).expr;
+                    ctxVars.remove(0);
+                    ctxTypes.remove(0);
+                    return fp.pmapProof(constructTerm(a).expr, constructTerm(b).expr,
                             hTerm, constructProof(eqProof));
                 }
-            } // pmap function
+            }
             if (fun == ext.prelude.getIdp()) {
-//                return fac.ref(ext.prelude.getIdp().getRef());
                 var a = args.get(1);
-                return fp.reflProof(constructTerm(a, ctx).expr, constructFormula(pType, ctx).expr);
-            } // identity proof
+                return fp.reflProof(constructTerm(a).expr, (ctxHypsCumulative().get(0)).expr);
+            }
         }
         if (expr instanceof CoreProjExpression) { // Proj
             var type = ((CoreProjExpression) expr).getExpression().computeType();
@@ -741,7 +915,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
             List<FieldsProvider.ExpressionAndPattern> types = new ArrayList<>();
             int n = 0;
             while (link.hasNext()) {
-                types.add(constructFormula(link.getTypeExpr(), ctx, new ArrayList<>()));
+                types.add(constructFormula(link.getTypeExpr()));
                 n++;
                 link = link.getNext();
             }
@@ -764,123 +938,37 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                 Sind++;
             }
             return last ? term : fp.transProof(term, fp.proj1Proof(types.get(Sind).expr, typesCumulative.get(typesCumulative.size() - 1 - (Sind + 1)).expr));
-        } // projection in conjunction proof
+        }
         if (expr instanceof CoreTupleExpression) { // unit or Tuple
             var fields = ((CoreTupleExpression) expr).getFields();
             if (fields.size() == 0) {
-                return fp.trueProof(constructType(ctx).expr, constructFormula(pType, ctx, new ArrayList<>()).expr);
+                return fp.trueProof(ctxTypesCumulative().get(0).expr, ctxHypsCumulative().get(0).expr);
             }
             var resProof = constructProof(fields.get(fields.size() - 1));
-            var resFormula = constructFormula(fields.get(fields.size() - 1).computeType(), ctx, new ArrayList<>());
+            var resFormula = constructFormula(fields.get(fields.size() - 1).computeType());
             for (int i = fields.size() - 2; i >= 0; i--) {
                 var curProof = constructProof(fields.get(i));
-                var curFormula = constructFormula(fields.get(i).computeType(), ctx, new ArrayList<>());
+                var curFormula = constructFormula(fields.get(i).computeType());
 
                 resProof = fp.tupleProof(curFormula.expr, resFormula.expr, curProof, resProof);
                 resFormula = fp.conj(curFormula, resFormula);
             }
             return resProof;
-        } // proof of conjunction
-        if (expr instanceof CoreAppExpression
-                || expr instanceof CoreReferenceExpression && findHypothesis((CoreReferenceExpression) expr) != null) {
-
-            CoreExpression fun = expr;
-            ConcreteExpression term = null;
-            ConcreteExpression hypProof = null;
-            if (expr instanceof CoreAppExpression exprApp) {
-                fun = exprApp.getFunction();
-
-                if (fun instanceof CoreAppExpression funApp) { // hypothesis param with dom and hyp
-                    fun = funApp.getFunction();
-                    term = constructTerm(funApp.getArgument(), ctx, new ArrayList<>()).expr;
-                    hypProof = constructProof(exprApp.getArgument());
-                } else {
-                    if (isType(exprApp.getArgument().computeType())) { // hypothesis param with dom only
-                        term = constructTerm(exprApp.getArgument(), ctx, new ArrayList<>()).expr;
-                    } else { // hypothesis with hyp only
-                        hypProof = constructProof(exprApp.getArgument());
-                    }
-                }
-            }
-            if (fun instanceof CoreReferenceExpression) {
-                var x = findHypothesis((CoreReferenceExpression) fun);
-                var dom = x.proj1.proj1;
-                var hyp = x.proj1.proj2.proj1;
-                var form = x.proj1.proj2.proj2;
-                if (term == null) {
-                    term = fp.unit(constructType(ctx), new ArrayList<>()).expr;
-                }
-                if (hypProof == null) {
-                    hypProof = fp.trueProof(constructType(ctx).expr, constructFormula(pType, ctx, new ArrayList<>()).expr);
-                }
-//                if (hypProof instanceof ConcreteReferenceExpression && ((ConcreteReferenceExpression) hypProof).getReferent() == ext.prelude.getIdp().getRef()) {
-//                    if (hyp instanceof CoreFunCallExpression && ((CoreFunCallExpression) hyp).getDefinition() == ext.prelude.getEquality()) {
-//                        var eq = Utils.toEquality(hyp, typechecker.getErrorReporter(), marker);
-//                        var a = eq.getDefCallArguments().get(1);
-//                        var b = eq.getDefCallArguments().get(2);
-//                        var aTerm = constructTerm(a, dom, new ArrayList<>()).expr;
-//                        var bTerm = constructTerm(b, dom, new ArrayList<>()).expr;
-//                        var eqIdp = fac.app(fac.ref(ext.prelude.getIdp().getRef()));
-//                        hypProof = fp.reflProof(fp.subst(aTerm, term), fp.subst(bTerm, term), constructFormula(pType, ctx, new ArrayList<>()).expr, 10, eqIdp);
-//                    }
-//                }
-                return fp.transProof(hypProof, fp.substProof(term,
-                        fp.hypothesis(constructType(dom).expr,
-                                constructFormula(hyp, dom, new ArrayList<>()).expr,
-                                constructFormula(form, dom, new ArrayList<>()).expr,
-                                x.proj2.getIndex(fun))));
-            }
-        } // applying hypothesis
+        }
         if (expr instanceof CoreReferenceExpression exprRef) {
-            if (exprRef.getBinding() == p) { // hyp
-                return fp.idProof(constructType(ctx).expr, constructFormula(pType, ctx, new ArrayList<>()).expr);
+            return projProof(exprRef.getBinding());
+        }
+        if (expr instanceof CoreDefCallExpression exprDefCall) {
+            if (exprDefCall.getDefinition() == cons) {
+                return fp.trueProof(ctxTypesCumulative().get(0).expr, ctxHypsCumulative().get(0).expr);
             }
         }
         return null;
-
     }
-
-    private ConcreteExpression constructFullProof(CoreExpression expr) {
-        if (expr instanceof CoreLamExpression exprLam) {
-            if (exprLam.getBody() instanceof CoreLamExpression exprLamLam) {
-                x = exprLam.getParameters().getBinding(); // variable of dom type
-                ctx = x.getTypeExpr();
-                p = exprLamLam.getParameters().getBinding(); // variable of hyp type
-                pType = p.getTypeExpr();
-                return constructProof(exprLamLam.getBody());
-            } else {
-                if (isType(exprLam.getParameters().getBinding().getTypeExpr())) {
-                    x = exprLam.getParameters().getBinding(); // variable of dom type, hyp = FTrue
-                    ctx = x.getTypeExpr();
-                    p = null;
-                    pType = wrapType(ctx);
-                } else {
-                    p = exprLam.getParameters().getBinding(); // variable of hyp type, dom = Unit
-                    pType = p.getTypeExpr();
-                    ctx = sigma.getResultType();
-                    x = null;
-                }
-                return constructProof(exprLam.getBody());
-            }
-        } else { // dom = Unit, hyp = FTrue
-            ctx = sigma.getResultType();
-            x = null;
-            p = null;
-            pType = wrapType(ctx);
-            return constructProof(expr);
-        }
-    }
-
-    @Dependency(module = "Category.Limit", name = "FinCompletePrecat")
-    private CoreClassDefinition finCompletePrecat;
-    @Dependency(module = "CategoryLanguage.Util", name = "subobj")
-    private CoreFunctionDefinition subobj;
-    @Dependency(module = "CategoryLanguage.Util", name = "subobj-inclusion")
-    private CoreFunctionDefinition subobjInclusion;
 
     private ConcreteExpression constructLambda(ConcreteExpression proof) {
         List<ConcreteParameter> typeParams = new ArrayList<>();
-        var categoryParam = fac.param(List.of(fp.category), fac.app(fac.ref(finCompletePrecat.getRef()), List.of()));
+        var categoryParam = fac.param(List.of(fp.category), fac.app(fac.ref(heytingPrecat.getRef()), List.of()));
         typeParams.add(categoryParam);
         for (var x : typesParameters.getValues()) {
             typeParams.add(fac.param(List.of(getRef(x)), fac.ref(fp.category)));
@@ -907,13 +995,14 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
         }
 
         List<ConcreteParameter> hypothesisParams = new ArrayList<>();
-        for (var x : hypothesisParameters) {
-            var dom = x.proj1.proj1;
-            var hyp = x.proj1.proj2.proj1;
-            var form = x.proj1.proj2.proj2;
-            for (var refOld : x.proj2.getValues()) {
-                var hypSubobj = fp.applyIF(constructFormula(hyp, dom, new ArrayList<>()).expr);
-                var formSubobj = fp.applyIF(constructFormula(form, dom, new ArrayList<>()).expr);
+        for (var x : proofParameters) {
+            for (var refOld : x.values.getValues()) {
+                ctxVars.add(0, x.binding);
+                ctxTypes.add(0, x.domainCore);
+                var hypSubobj = fp.applyIF(x.hypConstructed.expr);
+                var formSubobj = fp.applyIF(x.formConstructed.expr);
+                ctxVars.remove(0);
+                ctxTypes.remove(0);
                 var subInclType = fac.app(fac.ref(subobjInclusion.getRef()), List.of(fac.arg(hypSubobj, true), fac.arg(formSubobj, true)));
                 hypothesisParams.add(fac.param(List.of(getRef(refOld)), subInclType));
             }
@@ -921,96 +1010,96 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
         return fac.lam(typeParams,
                 constructTypeLets(fac.lam(termPredParams,
                         constructTermPredLets(fac.lam(hypothesisParams,
-                                constructHypothesisLets(
+                                constructProofsLets(
                                         proof))))));
     }
 
 
-    @Dependency(module = "CategoryLanguage.Util", name = "subst-unit")
-    private static CoreFunctionDefinition substUnit;
-    @Dependency(module = "CategoryLanguage.Util", name = "carry-function")
-    private static CoreFunctionDefinition carryFunction;
+//    @Dependency(module = "CategoryLanguage.Util", name = "subst-unit")
+//    private static CoreFunctionDefinition substUnit;
+//    @Dependency(module = "CategoryLanguage.Util", name = "carry-function")
+//    private static CoreFunctionDefinition carryFunction;
+//
+//
+//    public ConcreteExpression handleType(ArendRef ref, CoreParameter parameter, List<ConcreteParameter> paramsAcc, ConcreteExpression application) {
+//
+//        ConcreteExpression argRes = fac.ref(ref);
+//        ConcreteParameter paramRes = fac.param(true, List.of(ref), fac.core(parameter.getTypeExpr().computeTyped()));
+//
+//        paramsAcc.add(paramRes);
+//        return fac.app(application, fac.arg(argRes, true));
+//    }
+//
+//    public ConcreteExpression handleTerm(CoreParameter parameter, List<ConcreteParameter> paramsAcc, ConcreteExpression application) {
+//        var ref = fac.local(parameter.getBinding().getName());
+//        ConcreteExpression argRes;
+//        ConcreteParameter paramRes;
+//
+//        var type = parameter.getTypeExpr();
+//        if (type instanceof CorePiExpression typePi) { // functional symbol
+//            var codomain = typePi.getCodomain();
+//            if (codomain instanceof CorePiExpression codPi) { // with >= two parameters
+//                var codomain1 = codPi.getCodomain();
+//                if (codomain1 instanceof CorePiExpression) { // >= 3 parameters
+//                    return null;
+//                }
+//                var A = fac.param(true, fac.core(typePi.getParameters().getTypedType()));
+//                var B = fac.param(true, fac.core(codPi.getParameters().getTypedType()));
+//                paramRes = fac.param(true, List.of(ref),
+//                        fac.pi(List.of(fac.param(true, fac.sigma(A, B))), fac.core(codomain1.computeTyped())));
+//                argRes = fac.app(fac.ref(carryFunction.getRef()), fac.arg(fac.ref(ref), true));
+//            } else { // with one parameter
+//                paramRes = fac.param(true, List.of(ref), fac.core(type.computeTyped()));
+//                argRes = fac.ref(ref);
+//            }
+//        } else { // constant symbol
+//            paramRes = fac.param(true, List.of(ref), fac.pi(List.of(fac.param(true, fac.sigma())), fac.core(type.computeTyped())));
+//            argRes = fac.app(fac.ref(substUnit.getRef()), fac.arg(fac.ref(ref), true));
+//        }
+//        paramsAcc.add(paramRes);
+//        return fac.app(application, fac.arg(argRes, true));
+//    }
+//
+//
+//    @Dependency(module = "CategoryLanguage.Util", name = "idfunc")
+//    private static CoreFunctionDefinition idfunc;
 
+//    public ConcreteExpression handleTerms(ConcreteExpression lam, CoreExpression lamCore, int proofStart) {
+//
+//
+//
+//        List<ArendRef> old = new ArrayList<>();
+//        if (lam instanceof ConcreteLamExpression) {
+//            for (var p : ((ConcreteLamExpression) lam).getParameters()) {
+//                old.addAll(p.getRefList());
+//            }
+//        }
+//
+//        var lll = typechecker.typecheck(fac.app(fac.ref(idfunc.getRef()), fac.arg(lam, true)), null).getExpression().normalize(NormalizationMode.NF);
+//
+//        ConcreteExpression application = fac.core(lll.computeTyped());
+//        List<ConcreteParameter> parameters = new ArrayList<>();
+//
+//        while (proofStart > 0) {
+//            if (lamCore instanceof CoreLamExpression) {
+//                var params = ((CoreLamExpression) lamCore).getParameters();
+//                while (params.hasNext()) {
+//                    proofStart--;
+//                    var type = params.getTypeExpr();
+//                    if (type instanceof CoreUniverseExpression) { // type parameter
+//                        application = handleType(old.get(0), params, parameters, application);
+//                    } else {
+//                        application = handleTerm(params, parameters, application);
+//                    }
+//                    params = params.getNext();
+//                }
+//                lamCore = ((CoreLamExpression) lamCore).getBody();
+//            }
+//        }
+//        return fac.lam(parameters, application);
+//    }
 
-    public ConcreteExpression handleType(ArendRef ref, CoreParameter parameter, List<ConcreteParameter> paramsAcc, ConcreteExpression application) {
-
-        ConcreteExpression argRes = fac.ref(ref);
-        ConcreteParameter paramRes = fac.param(true, List.of(ref), fac.core(parameter.getTypeExpr().computeTyped()));
-
-        paramsAcc.add(paramRes);
-        return fac.app(application, fac.arg(argRes, true));
-    }
-
-    public ConcreteExpression handleTerm(CoreParameter parameter, List<ConcreteParameter> paramsAcc, ConcreteExpression application) {
-        var ref = fac.local(parameter.getBinding().getName());
-        ConcreteExpression argRes;
-        ConcreteParameter paramRes;
-
-        var type = parameter.getTypeExpr();
-        if (type instanceof CorePiExpression typePi) { // functional symbol
-            var codomain = typePi.getCodomain();
-            if (codomain instanceof CorePiExpression codPi) { // with >= two parameters
-                var codomain1 = codPi.getCodomain();
-                if (codomain1 instanceof CorePiExpression) { // >= 3 parameters
-                    return null;
-                }
-                var A = fac.param(true, fac.core(typePi.getParameters().getTypedType()));
-                var B = fac.param(true, fac.core(codPi.getParameters().getTypedType()));
-                paramRes = fac.param(true, List.of(ref),
-                        fac.pi(List.of(fac.param(true, fac.sigma(A, B))), fac.core(codomain1.computeTyped())));
-                argRes = fac.app(fac.ref(carryFunction.getRef()), fac.arg(fac.ref(ref), true));
-            } else { // with one parameter
-                paramRes = fac.param(true, List.of(ref), fac.core(type.computeTyped()));
-                argRes = fac.ref(ref);
-            }
-        } else { // constant symbol
-            paramRes = fac.param(true, List.of(ref), fac.pi(List.of(fac.param(true, fac.sigma())), fac.core(type.computeTyped())));
-            argRes = fac.app(fac.ref(substUnit.getRef()), fac.arg(fac.ref(ref), true));
-        }
-        paramsAcc.add(paramRes);
-        return fac.app(application, fac.arg(argRes, true));
-    }
-
-
-    @Dependency(module = "CategoryLanguage.Util", name = "idfunc")
-    private static CoreFunctionDefinition idfunc;
-
-    public ConcreteExpression handleTerms(ConcreteExpression lam, CoreExpression lamCore, int proofStart) {
-
-
-
-        List<ArendRef> old = new ArrayList<>();
-        if (lam instanceof ConcreteLamExpression) {
-            for (var p : ((ConcreteLamExpression) lam).getParameters()) {
-                old.addAll(p.getRefList());
-            }
-        }
-
-        var lll = typechecker.typecheck(fac.app(fac.ref(idfunc.getRef()), fac.arg(lam, true)), null).getExpression().normalize(NormalizationMode.NF);
-
-        ConcreteExpression application = fac.core(lll.computeTyped());
-        List<ConcreteParameter> parameters = new ArrayList<>();
-
-        while (proofStart > 0) {
-            if (lamCore instanceof CoreLamExpression) {
-                var params = ((CoreLamExpression) lamCore).getParameters();
-                while (params.hasNext()) {
-                    proofStart--;
-                    var type = params.getTypeExpr();
-                    if (type instanceof CoreUniverseExpression) { // type parameter
-                        application = handleType(old.get(0), params, parameters, application);
-                    } else {
-                        application = handleTerm(params, parameters, application);
-                    }
-                    params = params.getNext();
-                }
-                lamCore = ((CoreLamExpression) lamCore).getBody();
-            }
-        }
-        return fac.lam(parameters, application);
-    }
-
-
+    public Canonizer canonizer = new Canonizer();
 
     @Override
     public TypedExpression invokeMeta(@NotNull ExpressionTypechecker typechecker, @NotNull ContextData contextData) {
@@ -1023,18 +1112,12 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
             typesParameters = new Values<>(typechecker, marker);
             termsParameters = new ArrayList<>();
             predicateParameters = new ArrayList<>();
-            hypothesisParameters = new ArrayList<>();
-
+            proofParameters = new ArrayList<>();
 
             List<? extends ConcreteArgument> args = contextData.getArguments();
 
             var lam = args.get(0).getExpression();
             var lamCore = typechecker.typecheck(args.get(0).getExpression(), null);
-            var teratsgf = fac.core(lamCore);
-
-            var xxx = handleTerms(lam, lamCore.getExpression(), 5);
-            var yyy = typechecker.typecheck(xxx, null);
-            var zzz = yyy.getExpression().normalize(NormalizationMode.NF);
 
             int proofStart = 0;
             if (lam instanceof ConcreteLamExpression) {
@@ -1042,17 +1125,18 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
                     proofStart += p.getRefList().size();
                 }
             }
-            SubstConcreteVisitor visitor = new SubstConcreteVisitor(null);
-            visitor.bind();
-            ((Concrete.Expression) lam).accept(visitor, null);
-//            var lamCore = typechecker.typecheck(args.get(0).getExpression(), null);
+            canonizer.init(fac, ext, typechecker, marker);
+            var canonized = canonizer.canonize(lamCore.getExpression(), proofStart);
+
+
             var proof = parseArgs(lamCore.getExpression(), proofStart);
             var proofConstructed = constructFullProof(proof);
             var finalProof = fp.applyIP(proofConstructed);
             var result = constructLambda(finalProof);
             var res = typechecker.typecheck(result, null);
+            var typeRes = res.getType().normalize(NormalizationMode.NF);
             return res;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             e.printStackTrace();
         }
         return null;

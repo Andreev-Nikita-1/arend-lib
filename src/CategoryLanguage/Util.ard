@@ -2,10 +2,12 @@
 \import Category.Functor
 \import Category.Limit
 \import Category.Meta
-\import CategoryLanguage.FinitelyComplete
+\import CategoryLanguage.Heyting
 \import Data.Array (fold)
+\import Data.List
 \import Function.Meta
 \import Logic
+\import Logic.Meta
 \import Meta
 \import Paths
 \import Paths.Meta
@@ -95,14 +97,14 @@
 --  | Var p, m1 => {?}
 --  | t2, Tuple p t1 t3 => \case \elim t2 \with {
 --    | Var p1 => {?}
---    | Tuple p1 t2 t4 => rewriteI (lemma-subst1 (Tuple p1 t2 t4) t1, lemma-subst1 (Tuple p1 t2 t4) t3) lemma-pair
---    | unit p1 => {?}
---    | Proj1 t2 => {?}
---    | Proj2 t2 => {?}
---    | Param p1 t2 => {?}
---  }
---  | m2, unit p => {?}
---  | m2, Proj1 m1 => {?}
+----    | Tuple p1 t2 t4 => rewriteI (lemma-subst1 (Tuple p1 t2 t4) t1, lemma-subst1 (Tuple p1 t2 t4) t3) lemma-pair
+----    | unit p1 => {?}
+----    | Proj1 t2 => {?}
+----    | Proj2 t2 => {?}
+----    | Param p1 t2 => {?}
+----  }
+----  | m2, unit p => {?}
+----  | m2, Proj1 m1 => {?}
 --  | m2, Proj2 m1 => {?}
 --  | m2, Param p m1 => {?}
 --  | m2, Var p => {?}
@@ -363,7 +365,9 @@
 
 \func sigma : \Sigma => ()
 
-\func wrapType (A : \Type) => A
+\func wrapFTrueDom (A : \Type) => A
+
+\func wrapFFalseDom (A : \Type) => A
 
 \func type-is-set {TP : \Set} {a : Type TP} (p : a = a) : p = idp => Path.inProp p idp
 
@@ -373,7 +377,7 @@
 
 \func Isub {C : FinCompletePrecat} {TP : \Set} (TyF : TP -> C) (A : Type TP) => subobj (IT TyF A)
 
-\func IsubInc {C : FinCompletePrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
+\func IsubInc {C : HeytingPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
               (TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
               {FP : Type TP -> \Set} (FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom))
               {dom : Type TP} (hyp form : Formula P FP dom) => subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form)
@@ -381,125 +385,34 @@
 \func param-var (TP : \Set) (P : Type TP -> (Type TP) -> \Set)
                 (ctx : Type TP) (T : Type TP) (n : P ctx T) : Term P ctx T => Param n (Var idp)
 
-\func test (A B : \Type) (F : A -> B -> \Prop) (q : \Sigma (a : A) (\Pi (b : B) -> F a b))
-  : \Pi (b : B) -> \Sigma (a : A) (F a b) => \lam b => (q.1, q.2 b)
+\func recExists {A : \Type} {B : A -> \Prop} {C : \Prop} (c : \Pi (a : A) -> B a -> C) (x : ∃ (a : A) (B a)) : C
+  | c, inP a => c a.1 a.2
 
-\func test1 (A : \Type) (P1 : A -> A -> \Prop) (P2 : A -> \Prop)
-            (q : \Pi (a : A) -> \Pi (b : A) -> \Sigma (c : A) (P1 a c -> P2 b))
-  : (\Sigma (\Sigma (b : A) (P2 b -> Empty)) (\Sigma (a : A) (\Pi (c : A) -> P1 a c))) -> Empty =>
-  \lam ((b0, p), (a0, s)) => p (\let s1 => q a0 b0 \in s1.2 (s s1.1))
+\func test {A B : \Type} {t : A -> B} {P : A -> \Prop} {Q : B -> \Prop} (s : \Pi(x : A) -> P x -> Q (t x))
+           (q : ∃ (x : A) (P x)) : ∃ (y : B) (Q y) => recExists (\lam (x : A) (l : P x) => inP (later (t x, s x l))) q
 
-\func test1' (A : \Type) (P1 : \Sigma A A -> \Prop) (P2 : A -> \Prop)
-             (q : \Pi (a : A) -> \Pi (b : A) -> \Sigma (c : A) (P1 (a, c) -> P2 b))
-  : (\Sigma (\Sigma (b : A) (P2 b -> Empty)) (\Sigma (a : A) (\Pi (c : A) -> P1 (a, c)))) -> Empty =>
-  \lam ((b0, p), (a0, s)) => p (\let s1 => q a0 b0 \in s1.2 (s s1.1))
+\data Either (A B : \Type)
+  | inl A
+  | inr B
 
-\func test-e=e'
-  (A : \Type0)
-  (star : A -> A -> A)
-  (e e' : A)
-  (h1 : \Pi(x : A) -> star x e = x)
-  (h2 : \Pi(x : A) -> star e' x = x)
-  (comm : \Pi(x : A) -> \Pi (y : A) -> star x y = star y x)
-  (h3 : star e e = e) => inv (h1 e') *> h2 e
+\func disjunction (A B : \Prop) => TruncP (Either A B)
 
-\func subst-unit {A : \Type} (f : \Sigma -> A) => f ()
+\func recDisjunction {A B C : \Prop} (p : A -> C) (q : B -> C) : (disjunction A B) -> C => \lam x => \case x \with {
+  | inP (inl a) => p a
+  | inP (inr b) => q b
+}
 
-\func carry-function {A B : \Type} {C : \Sigma A B -> \Type} (f : \Pi (x : \Sigma A B) -> C x)
-  : \Pi (a : A) -> \Pi (b : B) -> C (a, b) => \lam a => \lam b => f (a, b)
+\data True
+  | cons
 
-\func uncarry-function {A B : \Type} {C : A -> B -> \Type} (f : \Pi (x : A) -> \Pi (y : B) -> C x y)
-  : \Pi (x : \Sigma A B) -> C x.1 x.2 => \lam x => f x.1 x.2
-
-\func test-e=e'-handle-terms => \lam
-(A : \Type0)
-(star : \Sigma A A -> A)
-(e e' : \Sigma -> A)
-=> test-e=e' A (carry-function star) (subst-unit e) (subst-unit e')
-
-\func idfunc {A : \Type} (a : A) => a
-
-\func sadsfg => my_meta1 $ \lam
-                           (A : \Type0)
-                           (star : A -> A -> A)
-                           (e : A)
-                           (f : A -> A)
-                           (f' : A -> A)
-(h : A -> \Prop) => 0
-
-\func test-e=e'-handled-terms
-  (A : \Type0)
-  (star : \Sigma A A -> A)
-  (e e' : \Sigma -> A)
-  (h1 : \Pi(x : A) -> star (x, e ()) = x)
-  (h2 : \Pi(x : A) -> star (e' (), x) = x)
-  (comm : \Pi(x : A) -> \Pi (y : A) -> star (x, y) = star (y, x))
-  (h3 : star (e (), e ()) = e ()) => proof $ inv (h1 (e' ())) *> h2 (e ())
-
-\func uncarry-type {A B : \Type} (C : A -> B -> \Type) => \lam (x : \Sigma A B) => C x.1 x.2
-
-\func get-type-1 {A : \Type} {C : A -> \Type} (f : \Pi (a : A) -> C a) => C
-
-\func get-type-1' {A : \Type} {C : A -> \Type} (X : \Type) (p : X = (\Pi (a : A) -> C a)) => C
-
-\func get-type-2 {A B : \Type} {C : A -> B -> \Type} (f : \Pi (a : A) -> \Pi (b : B) -> C a b) => C
-
-\func get-type-2' {A B : \Type} {C : A -> B -> \Type} (X : \Type) (p : X = (\Pi (a : A) -> \Pi (b : B) -> C a b)) => C
-
-\func add-sigma-prefix (A : \Type) => \Sigma -> A
-
-\func subst-hyp {A : \Type} {F : A -> \Type} (h : \Pi (x : A) -> \Sigma -> F x) => \lam x => h x ()
-
-\func subst-unit-dom {H F : \Sigma -> \Type} (h : \Pi (x : \Sigma) -> H x -> F x) => h ()
-
-\func subst-unit-dom-and-hyp {F : \Sigma -> \Type} (h : \Pi (x : \Sigma) -> \Sigma -> F x) => h () ()
-
-\func test-e=e'-handle-hypothesis =>
-  \lam (A : \Type0)
-  (star : \Sigma A A -> A)
-  (e e' : \Sigma -> A)
-  --  (h1 : \Pi(x : A) -> star (x, e ()) = x)
-  --  (h2 : \Pi(x : A) -> star (e' (), x) = x)
-  --  (comm : \Pi(x : A) -> \Pi (y : A) -> star (x, y) = star (y, x))
-  --  (h3 : star (e (), e ()) = e ())
-  (h1' : \Pi (x : A) -> add-sigma-prefix ((get-type-1' (\Pi(x : A) -> star (x, e ()) = x) idp) x))
-  (h2' : \Pi (x : A) -> add-sigma-prefix ((get-type-1' (\Pi(x : A) -> star (e' (), x) = x) idp) x))
-  (comm' : \Pi(x : \Sigma A A) -> add-sigma-prefix ((uncarry-type (get-type-2' (\Pi(x : A) -> \Pi (y : A) -> star (x, y) = star (y, x)) idp)) x))
-  (h3' : \Sigma -> (add-sigma-prefix (star (e (), e ()) = e ())))
-  => test-e=e'-handled-terms A star e e'
-      (subst-hyp h1')
-      (subst-hyp h2')
-      (carry-function (subst-hyp comm'))
-      (subst-unit-dom-and-hyp h3')
-
-\func test-e=e'-handled-hypothesis => \lam (A : \Type0)
-(star : \Sigma A A -> A)
-(e e' : \Sigma -> A)
-(h1 : \Pi(x : A) -> \Sigma -> star (x, e ()) = x)
-(h2 : \Pi(x : A) -> \Sigma -> star (e' (), x) = x)
-(comm : \Pi(x : \Sigma A A) -> \Sigma -> star (x.1, x.2) = star (x.2, x.1))
-(h3 : \Sigma -> \Sigma -> star (e (), e ()) = e ())
-=> inv (h1 (e' ()) ()) *> h2 (e ()) ()
-
---\data proof-wrapper (A : \Type)
---  | proof A
-
-\func test-e=e'-handle-proof-start =>
-  my_meta1 $ \lam (A : \Type0)
-             (star : \Sigma A A -> A)
-             (e e' : \Sigma -> A)
-             (h1 : \Pi(x : A) -> \Sigma -> star (x, e ()) = x)
-             (h2 : \Pi(x : A) -> \Sigma -> star (e' (), x) = x)
-             (comm : \Pi(x : \Sigma A A) -> \Sigma -> star (x.1, x.2) = star (x.2, x.1))
-             (h3 : \Sigma -> \Sigma -> star (e (), e ()) = e ())
-             => uncarry-function $ \lam (x y : A) => proof $ comm (x, y) ()
+\func carry2 {A B : \Type} {C : \Sigma A B -> \Type} (f : \Pi (x : \Sigma A B) -> C x) : \Pi (x : A) -> \Pi (y : B) -> C (x, y) => \lam x y => f (x, y)
+\func ev-unit {A : \Type} (x : \Sigma -> A) => x ()
+\func ev-true {A : \Type} {F : A -> \Type} (f : \Pi(x : A) -> True -> F x) : \Pi (x : A) -> F x => \lam x => f x cons
 
 
+--\func test1 {A B C : \Type} (f : A -> C) (g : B -> C) : (Either A B) -> C =>
+--  my_meta1 $ \lam (x : ∃ (x : A) (x = x)) => 0
 
-\func asdfsgd (A B : \Type) (P Q R : A -> \Prop) (q : \Sigma (x : A) (P x -> Q x))
-              (s : \Pi (x : A) -> Q x -> R x) : \Sigma (x : A) (P x -> R x)
-  => (q.1, \lam t => s q.1 (q.2 t))
+\func test2 {A B : \Set} (F : A -> \Prop) (G : B -> \Prop) (x0 : A) (f : A -> B) : ∃ (x : A) (x = x) =>
+  recExists (\lam t q => inP $ later (t, q)) (inP $ later (x0, idp {A} {x0}))
 
-
-\func adsfg (A B C : \Type) (f : A -> B) (g : B -> C) : A -> C
-  => \lam x => g (f x)

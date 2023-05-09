@@ -49,9 +49,9 @@ public class FieldsProvider {
     private CoreFunctionDefinition IT;
     @Dependency(module = "CategoryLanguage.Util", name = "I")
     private CoreFunctionDefinition I;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "IF")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "IF")
     private CoreFunctionDefinition IF;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "IP")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "IP")
     private CoreFunctionDefinition IP;
 
     public ConcreteExpression applyIT(ConcreteExpression type) {
@@ -192,16 +192,26 @@ public class FieldsProvider {
     }
 
 
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Formula")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Formula")
     public CoreDataDefinition Formula;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Formula.Conj")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Formula.Conj")
     private CoreConstructor Conj;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Formula.Eq")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Formula.Eq")
     private CoreConstructor Eq;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Formula.FParam")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Formula.FParam")
     private CoreConstructor FParam;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Formula.FTrue")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Formula.FTrue")
     private CoreConstructor FTrue;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Formula.FExists")
+    private CoreConstructor FExists;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Formula.FFalse")
+    private CoreConstructor FFalse;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Formula.Disj")
+    private CoreConstructor Disj;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Formula.Impl")
+    private CoreConstructor Impl;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Formula.Forall")
+    private CoreConstructor Forall;
 
     public ExpressionAndPattern conj(ExpressionAndPattern a, ExpressionAndPattern b) {
         return new ExpressionAndPattern(fac.app(fac.ref(Conj.getRef()),
@@ -240,34 +250,93 @@ public class FieldsProvider {
                 fac.conPattern(FTrue.getRef()));
     }
 
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof")
+
+
+    public ExpressionAndPattern ffalse(ExpressionAndPattern dom) {
+        return new ExpressionAndPattern(fac.app(fac.ref(FFalse.getRef()),
+                fac.arg(fac.ref(TP), false),
+                fac.arg(fac.ref(P), false),
+                fac.arg(fac.ref(FP), false),
+                fac.arg(dom.expr, false)),
+
+                fac.conPattern(FFalse.getRef()));
+    }
+
+    public ExpressionAndPattern disj(ExpressionAndPattern a, ExpressionAndPattern b) {
+        return new ExpressionAndPattern(fac.app(fac.ref(Disj.getRef()),
+                fac.arg(a.expr, true), fac.arg(b.expr, true)),
+
+                fac.conPattern(Disj.getRef(), a.pattern, b.pattern));
+    }
+
+    public ExpressionAndPattern impl(ExpressionAndPattern a, ExpressionAndPattern b) {
+        return new ExpressionAndPattern(fac.app(fac.ref(Impl.getRef()),
+                fac.arg(a.expr, true), fac.arg(b.expr, true)),
+
+                fac.conPattern(Impl.getRef(), a.pattern, b.pattern));
+    }
+
+    public ExpressionAndPattern exists(ExpressionAndPattern dom1, ExpressionAndPattern form) {
+        return new ExpressionAndPattern(fac.app(fac.ref(FExists.getRef()),
+                fac.arg(dom1.expr, false), fac.arg(form.expr, true)),
+
+                fac.conPattern(FExists.getRef(), dom1.pattern.implicit(), form.pattern));
+    }
+
+    public ExpressionAndPattern forall(ExpressionAndPattern dom1, ExpressionAndPattern form) {
+        return new ExpressionAndPattern(fac.app(fac.ref(Forall.getRef()),
+                fac.arg(dom1.expr, false), fac.arg(form.expr, true)),
+
+                fac.conPattern(Forall.getRef(), dom1.pattern.implicit(), form.pattern));
+    }
+
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof")
     public CoreDataDefinition Proof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.idProof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.idProof")
     private CoreConstructor idProof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.transProof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.transProof")
     private CoreConstructor transProof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.substProof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.substProof")
     private CoreConstructor substProof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.reflProof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.reflProof")
     public CoreConstructor reflProof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.transportProof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.transportProof")
     public CoreConstructor transportProof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.concatProof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.concatProof")
     private CoreConstructor concatProof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.pmapProof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.pmapProof")
     private CoreConstructor pmapProof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.invProof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.invProof")
     private CoreConstructor invProof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.proj1Proof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.proj1Proof")
     private CoreConstructor proj1Proof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.proj2Proof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.proj2Proof")
     private CoreConstructor proj2Proof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.tupleProof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.tupleProof")
     private CoreConstructor tupleProof;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.hypothesis")
-    private CoreConstructor hypothesis;
-    @Dependency(module = "CategoryLanguage.FinitelyComplete", name = "Proof.trueProof")
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.trueProof")
     private CoreConstructor trueProof;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "proofParam")
+    private CoreFunctionDefinition paramProof;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "recExistsProof")
+    private CoreFunctionDefinition recExistsProof;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "existsConsProof")
+    private CoreFunctionDefinition existsConsProof;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "recDisjProof")
+    private CoreFunctionDefinition recDisjProof;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "inlProof")
+    private CoreFunctionDefinition inlProof;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "inrProof")
+    private CoreFunctionDefinition inrProof;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "abstractionProof2")
+    private CoreFunctionDefinition abstractionProof2;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.forallProof2")
+    private CoreConstructor forallProof2;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "applForallProof")
+    private CoreFunctionDefinition applForallProof;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.applicationProof")
+    private CoreConstructor applicationProof;
+
 
     ConcreteExpression idProof(ConcreteExpression dom, ConcreteExpression form) {
         return fac.app(fac.ref(idProof.getRef()),
@@ -398,16 +467,13 @@ public class FieldsProvider {
                 fac.arg(proof2, true));
     }
 
-    ConcreteExpression hypothesis(ConcreteExpression dom, ConcreteExpression hyp, ConcreteExpression form, int n) {
-        return fac.app(fac.ref(hypothesis.getRef()),
-                fac.arg(fac.ref(TP), false),
-                fac.arg(fac.ref(P), false),
-                fac.arg(dom, false),
-                fac.arg(fac.ref(FP), false),
-                fac.arg(fac.ref(PP), false),
-                fac.arg(hyp, false),
-                fac.arg(form, false),
-                fac.arg(fac.number(n), true));
+    ConcreteExpression paramProof(ConcreteExpression hyp, ConcreteExpression form, ConcreteExpression term, ConcreteExpression proofHyp, int n) {
+        return fac.app(fac.ref(paramProof.getRef()),
+                fac.arg(hyp, true),
+                fac.arg(form, true),
+                fac.arg(fac.number(n), true),
+                fac.arg(term, true),
+                fac.arg(proofHyp, true));
     }
 
     ConcreteExpression trueProof(ConcreteExpression dom, ConcreteExpression hyp) {
@@ -420,6 +486,58 @@ public class FieldsProvider {
                 fac.arg(hyp, false),
                 fac.arg(fac.hole(), false),
                 fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true));
+    }
+
+    ConcreteExpression recExistsProof(ConcreteExpression existsProof, ConcreteExpression proof) {
+        return fac.app(fac.ref(recExistsProof.getRef()),
+                fac.arg(existsProof, true),
+                fac.arg(proof, true));
+    }
+
+    ConcreteExpression existsConsProof(ConcreteExpression term, ConcreteExpression proof) {
+        return fac.app(fac.ref(existsConsProof.getRef()),
+                fac.arg(term, true),
+                fac.arg(proof, true));
+    }
+
+    ConcreteExpression recDisjProof(ConcreteExpression disjProof, ConcreteExpression p1, ConcreteExpression p2) {
+        return fac.app(fac.ref(recDisjProof.getRef()),
+                fac.arg(disjProof, true),
+                fac.arg(p1, true),
+                fac.arg(p2, true));
+    }
+
+    ConcreteExpression inlProof(ConcreteExpression proof) {
+        return fac.app(fac.ref(inlProof.getRef()),
+                fac.arg(proof, true));
+    }
+
+    ConcreteExpression inrProof(ConcreteExpression proof) {
+        return fac.app(fac.ref(inrProof.getRef()),
+                fac.arg(proof, true));
+    }
+
+    ConcreteExpression abstrImplProof(ConcreteExpression proof) {
+        return fac.app(fac.ref(abstractionProof2.getRef()),
+                fac.arg(proof, true));
+    }
+
+    ConcreteExpression abstrForallProof(ConcreteExpression proof) {
+        return fac.app(fac.ref(forallProof2.getRef()),
+                fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true),
+                fac.arg(proof, true));
+    }
+
+    ConcreteExpression appImplProof(ConcreteExpression hypProof, ConcreteExpression implProof) {
+        return fac.app(fac.ref(applicationProof.getRef()),
+                fac.arg(hypProof, true),
+                fac.arg(implProof, true));
+    }
+
+    ConcreteExpression appForallProof(ConcreteExpression forallProof, ConcreteExpression term) {
+        return fac.app(fac.ref(applicationProof.getRef()),
+                fac.arg(forallProof, true),
+                fac.arg(term, true));
     }
 
 

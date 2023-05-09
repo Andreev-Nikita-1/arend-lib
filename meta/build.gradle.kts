@@ -23,7 +23,6 @@ repositories {
 
 dependencies {
     implementation("org.arend:api")
-    implementation("org.arend:base")
 }
 
 

@@ -1,21 +1,34 @@
---\import Category
---\import Category.Limit
---\import Category.Meta
---\import CategoryLanguage.FinitelyComplete
---\import CategoryLanguage.Util
---\import Data.List
---\import Logic
---\import Paths
---
+\import Category
+\import Category.Limit
+\import Category.Meta
+\import CategoryLanguage.FinitelyComplete
+\import CategoryLanguage.Util
+\import Data.List
+\import Function.Meta
+\import Logic
+\import Meta
+\import Paths
+
 --\func test-e=e' => \let q =>
---  my_meta1 (\lam
---  (A : \Type)
+--  unfold (Ih) $ my_meta1 (\lam
+--  (A : \Set)
 --  (star : \Sigma A A -> A)
---  (e e' : A)
---  (h1 : \Pi(x : A) -> star (x, e) = x)
---  (h2 : \Pi(x : A) -> star (e', x) = x)
---  => inv (h1 e') *> h2 e) \in 0
---
+--  (l l' : \Sigma -> A)
+--  (h1 : \Pi(x : A) -> True -> star (x, l ()) = x)
+--  (h2 : \Pi(x : A) -> True -> star (l' (), x) = x)
+--  => \lam (x : \Sigma) => \lam (y : True) => inv (h1 (l' ()) cons) *> h2 (l ()) cons) \in {?}
+
+\func test-e=e' => \let q =>
+  my_meta1 $ \lam
+  (A : \Set)
+  (star : A -> A -> A)
+  (l l' : A)
+  (F : A -> A -> \Prop)
+  (h1 : \Pi(x : A) -> star x l = x)
+  (h2 : \Pi(x : A) -> star l' x = x)
+  (h3 : \Pi(x : A) -> F x x)
+  => \lam (x : \Sigma) => \lam (y : True) => inv (h1 l' ) *> h2 l \in {?}
+
 --\func test-inv=inv' => \let q =>
 --  my_meta1 (\lam
 --  (A : \Type)

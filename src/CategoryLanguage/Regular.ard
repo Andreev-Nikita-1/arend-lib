@@ -34,7 +34,7 @@
   | Eq {T : Type TP} (Term P dom T) (Term P dom T)
   | FParam {dom' : Type TP} (FP dom') (Term P dom dom')
   | FTrue
-  | Exists {dom' : Type TP} (Formula P FP (Prod dom' dom))
+  | FExists {dom' : Type TP} (Formula P FP (Prod dom' dom))
 
 \func IF {C : RegularPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
          (TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
@@ -48,7 +48,7 @@
     })
   | FParam {dom'} x t => pullback-of-subobj (I TyF TeF t) (FF dom' x)
   | FTrue => (_, id _, \new Mono (id _) (inv id-left *> __ *> id-left))
-  | Exists form => image-subobj (C.image (C.proj2 `o` (IF TyF TeF FF form).2))
+  | FExists form => image-subobj (C.image (C.proj2 `o` (IF TyF TeF FF form).2))
 
 \func substF {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set} {dom dom' : Type TP}
              (form : Formula P FP dom) (term : Term P dom' dom) : Formula P FP dom' \elim form
@@ -56,7 +56,7 @@
   | Eq t t1 => Eq (subst t term) (subst t1 term)
   | FParam f t => FParam f (subst t term)
   | FTrue => FTrue
-  | Exists {dom''} form => Exists (substF form (Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))))
+  | FExists {dom''} form => FExists (substF form (Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))))
 
 \func lemma-substF-subobjects  {C : RegularPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
                                {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
@@ -146,7 +146,7 @@
     \let pb => C.pullback (id (IT TyF dom)) (I TyF TeF term)
     \in((Pullback.pbMap {pb} (I TyF TeF term) (id _) (id-left *> inv id-right), Pullback.pbBeta2),
         (Pullback.pbProj2, id-left))
-  | Exists {dom''} form =>
+  | FExists {dom''} form =>
     \let (sub-f, in-f, mono-f) => IF TyF TeF FF form
          | It => I TyF TeF term
          | term' => Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))
@@ -220,9 +220,9 @@
   | hypothesis (PP dom hyp f)
   | trueProof (f = FTrue)
   | existsProof1 {dom' dom'' : Type TP} {f' : Formula P FP dom''} (p : dom = Prod dom' dom'')
-                 (f = rewrite p (substF f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (q : Proof PP (Exists (rewriteI p hyp)) f')
-  | existsProof2 {dom' : Type TP} {hyp' : Formula P FP (Prod dom' dom)} (hyp = Exists hyp') (Proof PP hyp' (substF f (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
-  | existsProofSubst {dom' : Type TP} {t : Term P dom dom'} {f' : Formula P FP (Prod dom' dom)} (hyp = substF f' (Tuple idp t (Var idp))) (f = Exists f')
+                 (f = rewrite p (substF f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (q : Proof PP (FExists (rewriteI p hyp)) f')
+  | existsProof2 {dom' : Type TP} {hyp' : Formula P FP (Prod dom' dom)} (hyp = FExists hyp') (Proof PP hyp' (substF f (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
+  | existsProofSubst {dom' : Type TP} {t : Term P dom dom'} {f' : Formula P FP (Prod dom' dom)} (hyp = substF f' (Tuple idp t (Var idp))) (f = FExists f')
 
 \func IP
   {C : RegularPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
@@ -305,7 +305,7 @@
       | Itpl => I TyF TeF (Tuple idp t (Var idp))
       | pb => C.pullback If'.2 Itpl
       | img => C.image (C.proj2 `o` If'.2)
-    \in subobj-inclusion-transitivity x1 x2 (IF TyF TeF FF (Exists f')) in1 (Image.im2 {img} `o` Pullback.pbProj1 {pb},
+    \in subobj-inclusion-transitivity x1 x2 (IF TyF TeF FF (FExists f')) in1 (Image.im2 {img} `o` Pullback.pbProj1 {pb},
                                                                              inv o-assoc *> rewrite (Image.im-comm {img}) (o-assoc *> rewrite (Pullback.pbCoh {pb}) (inv o-assoc *> rewrite C.beta2 id-left))))
 
 
@@ -326,7 +326,7 @@
                       {PF : \Pi (dom : Type TP) -> \Pi (hyp form : Formula P FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form)}
                       {dom' : Type TP} {dom'' : Type TP} {form : Formula P FP dom} {hyp : Formula P FP dom} {p : dom = Prod dom' dom''}
                       {f' : Formula P FP dom''} {p1 : form = transportInv (Formula P FP) p (substF f' (Proj2 (Var idp)))}
-                      {proof : Proof PP (Exists (transport (Formula P FP) p hyp)) f'}
+                      {proof : Proof PP (FExists (transport (Formula P FP) p hyp)) f'}
       : subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF (transportInv (Formula P FP) p (substF f' (Proj2 (Var idp))))) \elim p
       | idp =>
         \let (in1, in2) => lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
