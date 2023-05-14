@@ -392,6 +392,20 @@
   | abstractionProof {phi psi : Formula P FP dom} (f = Impl phi psi) (Proof PP (Conj hyp phi) psi)
   | applicationProof {phi : Formula P FP dom} (Proof PP hyp phi) (Proof PP hyp (Impl phi f))
 
+\func absurdProof' {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
+                  {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
+                  {hyp : Formula P FP dom} (f : Formula P FP dom) (p : Proof PP hyp FFalse) : Proof PP hyp f => transProof p (absurdProof idp)
+
+
+\func proj1Proof' {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
+      {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
+                  {hyp f f' : Formula P FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f => transProof p (proj1Proof idp)
+
+\func proj2Proof' {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
+                  {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
+                  {hyp f f' : Formula P FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f' => transProof p (proj2Proof idp)
+
+
 \func proofParam {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom0 dom : Type TP} {FP : Type TP -> \Set}
                 {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set} {hyp0 : Formula P FP dom0}
                  (hyp f : Formula P FP dom)
@@ -414,7 +428,8 @@
   : Proof PP (Conj (FExists f) g) (FExists (Conj f (substF g (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))) => {?}
 
 \func recExistsProof {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom dom' : Type TP} {FP : Type TP -> \Set}
-                     {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set} (hyp f : Formula P FP dom)
+                     {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set} {hyp : Formula P FP dom}
+                     (f : Formula P FP dom)
                      (f' : Formula P FP (Prod dom' dom))
                      (ep : Proof PP hyp (FExists f'))
                      (p : Proof PP (Conj f' (substF hyp (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (substF f (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
@@ -423,7 +438,7 @@
 
 \func existsConsProof {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom dom' : Type TP} {FP : Type TP -> \Set}
                       {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set} {hyp : Formula P FP dom}
-                      {f' : Formula P FP (Prod dom' dom)} (t : Term P dom dom')
+                      (f' : Formula P FP (Prod dom' dom)) (t : Term P dom dom')
                       (p : Proof PP hyp (substF f' (Tuple idp t (Var idp)))) : Proof PP hyp (FExists f') =>
   transProof p (existsProofSubst idp idp)
 
@@ -436,12 +451,12 @@
 
 \func inlProof {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set}
                {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-               {dom : Type TP} {hyp f f' : Formula P FP dom} (p : Proof PP hyp f) : Proof PP hyp (Disj f f') =>
+               {dom : Type TP} {hyp f : Formula P FP dom} (f' : Formula P FP dom) (p : Proof PP hyp f) : Proof PP hyp (Disj f f') =>
   transProof p (disjLeft idp)
 
 \func inrProof {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set}
                {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-               {dom : Type TP} {hyp f f' : Formula P FP dom} (p : Proof PP hyp f') : Proof PP hyp (Disj f f') =>
+               {dom : Type TP} {hyp f' : Formula P FP dom} (f : Formula P FP dom) (p : Proof PP hyp f') : Proof PP hyp (Disj f f') =>
   transProof p (disjRight idp)
 
 \func deMorganLemma {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set}
@@ -607,117 +622,4 @@
               (IP TyF TeF FF PF proof)))
   }
 
-
-
-
-
-\func test1 =>
-  \lam (A B : \Set)
-  (f : A -> B -> A)
-  (e : A)
-  (F : A -> B -> \Prop)
-  (G : A -> \Prop)
-  (h : \Pi(x : A) -> \Pi(y : B) -> F x y)
-  (h1 : G e)
-  => 0
-
-
-\func carry2 {A B : \Type} {C : \Sigma A B -> \Type} (f : \Pi (x : \Sigma A B) -> C x) : \Pi (x : A) -> \Pi (y : B) -> C (x, y) => \lam x y => f (x, y)
-\func ev-sigma {A : \Type} (x : \Sigma -> A) => x ()
-\func ev-true {A : \Type} {F : A -> \Type} (f : \Pi(x : A) -> True -> F x) : \Pi (x : A) -> F x => \lam x => f x cons
-
-\func test1-terms-handling =>
-  \lam (A B : \Set)
-  (f : \Sigma A B -> A)
-  (e : \Sigma -> A)
-  (F : \Sigma A B -> \Prop)
-  => test1 A B (carry2 f) (ev-sigma e) (carry2 F)
-
-\func test1-terms-handled =>
-  \lam (A B : \Set)
-  (f : \Sigma A B -> A)
-  (e : \Sigma -> A)
-  (F : \Sigma A B -> \Prop)
-  (G : A -> \Prop)
-  (h : \Pi(x : A) -> \Pi(y : B) -> F (x, y))
-  (h1 : G (e ()))
-  => 0
-
-\func test1-proof-handling =>
-  \lam (A B : \Set)
-  (f : \Sigma A B -> A)
-  (e : \Sigma -> A)
-  (F : \Sigma A B -> \Prop)
-  (G : A -> \Prop)
-  (h : \Pi(t : \Sigma A B) -> True -> F (t.1, t.2))
-  (h1 : \Pi(t : \Sigma) -> True -> G (e ()))
-  => test1-terms-handled A B f e F G (carry2 (ev-true h)) (ev-sigma (ev-true h1))
-
-
-
-
-
-\func get-type-1' {A : \Type} {C : A -> \Type} (X : \Type) (p : X = (\Pi (a : A) -> C a)) => C
-
-\func get-type-2 {A B : \Type} {C : A -> B -> \Type} (f : \Pi (a : A) -> \Pi (b : B) -> C a b) => C
-
-\func get-type-2' {A B : \Type} {C : A -> B -> \Type} (X : \Type) (p : X = (\Pi (a : A) -> \Pi (b : B) -> C a b)) => C
-
-\func add-sigma-prefix (A : \Type) => \Sigma -> A
-
-\func subst-hyp {A : \Type} {F : A -> \Type} (h : \Pi (x : A) -> \Sigma -> F x) => \lam x => h x ()
-
-\func subst-unit-dom {H F : \Sigma -> \Type} (h : \Pi (x : \Sigma) -> H x -> F x) => h ()
-
-\func subst-unit-dom-and-hyp {F : \Sigma -> \Type} (h : \Pi (x : \Sigma) -> \Sigma -> F x) => h () ()
-
-\func test-e=e'-handle-hypothesis =>
-  \lam (A : \Type0)
-  (star : \Sigma A A -> A)
-  (e e' : \Sigma -> A)
-  --  (h1 : \Pi(x : A) -> star (x, e ()) = x)
-  --  (h2 : \Pi(x : A) -> star (e' (), x) = x)
-  --  (comm : \Pi(x : A) -> \Pi (y : A) -> star (x, y) = star (y, x))
-  --  (h3 : star (e (), e ()) = e ())
-  (h1' : \Pi (x : A) -> add-sigma-prefix ((get-type-1' (\Pi(x : A) -> star (x, e ()) = x) idp) x))
-  (h2' : \Pi (x : A) -> add-sigma-prefix ((get-type-1' (\Pi(x : A) -> star (e' (), x) = x) idp) x))
-  (comm' : \Pi(x : \Sigma A A) -> add-sigma-prefix ((uncarry-type (get-type-2' (\Pi(x : A) -> \Pi (y : A) -> star (x, y) = star (y, x)) idp)) x))
-  (h3' : \Sigma -> (add-sigma-prefix (star (e (), e ()) = e ())))
-  => test-e=e'-handled-terms A star e e'
-      (subst-hyp h1')
-      (subst-hyp h2')
-      (carry-function (subst-hyp comm'))
-      (subst-unit-dom-and-hyp h3')
-
-\func test-e=e'-handled-hypothesis => \lam (A : \Type0)
-(star : \Sigma A A -> A)
-(e e' : \Sigma -> A)
-(h1 : \Pi(x : A) -> \Sigma -> star (x, e ()) = x)
-(h2 : \Pi(x : A) -> \Sigma -> star (e' (), x) = x)
-(comm : \Pi(x : \Sigma A A) -> \Sigma -> star (x.1, x.2) = star (x.2, x.1))
-(h3 : \Sigma -> \Sigma -> star (e (), e ()) = e ())
- => inv (h1 (e' ()) ()) *> h2 (e ()) ()
-
---\data proof-wrapper (A : \Type)
---  | proof A
-
-\func test-e=e'-handle-proof-start =>
-  my_meta1 $ \lam (A : \Type0)
-  (star : \Sigma A A -> A)
-  (e e' : \Sigma -> A)
-  (h1 : \Pi(x : A) -> \Sigma -> star (x, e ()) = x)
-  (h2 : \Pi(x : A) -> \Sigma -> star (e' (), x) = x)
-  (comm : \Pi(x : \Sigma A A) -> \Sigma -> star (x.1, x.2) = star (x.2, x.1))
-  (h3 : \Sigma -> \Sigma -> star (e (), e ()) = e ())
-  => uncarry-function $ \lam (x y : A) => proof $ comm (x, y) ()
-
-
-
-\func asdfsgd (A B : \Type) (P Q R : A -> \Prop) (q : \Sigma (x : A) (P x -> Q x))
-              (s : \Pi (x : A) -> Q x -> R x) : \Sigma (x : A) (P x -> R x)
-  => (q.1, \lam t => s q.1 (q.2 t))
-
-
-\func adsfg (A B C : \Type) (f : A -> B) (g : B -> C) : A -> C
-  => \lam x => g (f x)
 

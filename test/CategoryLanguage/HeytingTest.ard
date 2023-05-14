@@ -1,0 +1,30 @@
+\import Category.Meta
+\import CategoryLanguage.Heyting
+\import CategoryLanguage.Util
+\import Data.List
+\import Function.Meta
+\import Logic
+\import Logic.Meta (∃)
+\import Paths.Meta
+
+\func test-forall-abstraction => \let q => my_meta1 $ \lam (A : \Set) (F : A -> \Prop) (h : \Pi(x : A) -> F x)
+                                    => \lam (_ : \Sigma) (_ : True) => \lam (x : A) => h x \in 0
+
+\func test-forall-appliation => \let q => my_meta1 $ \lam (A B : \Set) (t : B) (F : A -> \Prop) (h : \Pi(y : B) -> True -> \Pi(x : A) -> F x)
+                       => \lam (x : A) => h t cons x \in 0
+
+\func test-impl-abstraction => \let q => my_meta1 $ \lam (A : \Set) (F G : A -> \Prop) (h : \Pi(x : A) -> F x -> G x)
+                                    => \lam (x : A) (_ : True) => \lam (q : F x) => h (x : A) q \in 0
+
+\func test-inpl-application => \let q => my_meta1 $ \lam (A : \Set) (F G : A -> \Prop) (h : \Pi(x : A) -> True -> F x -> G x)
+                                    => \lam (x : A) (q : F x) => h x cons q \in 0
+
+\func test1 => \let q => my_meta1 $ \lam (A B : \Set) (t : B) (P : B -> \Prop) (Q : A -> B -> \Prop)
+                                    (h : \Pi (x : A) -> Q x t) (h1 : \Pi (y : B) -> (\Pi (x : A) -> Q x y) -> P y)
+                                    => h1 t (\lam (x' : A) => h x') \in 0
+\func test2 => \let q => my_meta1 $ \lam (A : \Set) (P Q R : A -> \Prop) (h1 : \Pi (x : A) -> P x -> Q x) (h2 : ∃ (y : A) (Q y -> R y))
+                                    => recExists (\lam (t : A) (s : Q t -> R t) => inP ((t, \lam (r : P t) => s (h1 t r)) : \Sigma (x : A) (P x -> R x))) h2 \in 0
+\func test3 => \let q => my_meta1 $ \lam (A : \Set) (t : A -> A) (P Q : A -> \Prop) (h : \Pi (x : A) -> Q x) (f : ∃(x : A) (Q x -> P (t x)))
+                                    => recExists (\lam (x : A) (s : Q x -> P (t x)) => inP ((t x,  s (h x)) : \Sigma (y : A) (P y))) f \in 0
+
+

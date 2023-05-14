@@ -90,109 +90,6 @@
   | Param p m1 => Param p (subst m1 m2)
   | Var p => rewrite p m2
 
---\func lemma-subst1 {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
---                   {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
---                   {dom mid cod : Type TP} (t2 : Term P dom mid) (t1 : Term P mid cod)
---  : I TyF TeF t1 `o` I TyF TeF t2 = I TyF TeF (subst1 t2 t1) \elim t2, t1
---  | Var p, m1 => {?}
---  | t2, Tuple p t1 t3 => \case \elim t2 \with {
---    | Var p1 => {?}
-----    | Tuple p1 t2 t4 => rewriteI (lemma-subst1 (Tuple p1 t2 t4) t1, lemma-subst1 (Tuple p1 t2 t4) t3) lemma-pair
-----    | unit p1 => {?}
-----    | Proj1 t2 => {?}
-----    | Proj2 t2 => {?}
-----    | Param p1 t2 => {?}
-----  }
-----  | m2, unit p => {?}
-----  | m2, Proj1 m1 => {?}
---  | m2, Proj2 m1 => {?}
---  | m2, Param p m1 => {?}
---  | m2, Var p => {?}
-
---  | Tuple p t1 t3, t2 =>
---  | unit p, t2 => lemma-terminal
---  | Var p, t2 => lemma-id
---  | Proj1 t1, t2 => cases (subst t1 t2 arg addPath) \with {
---    | Tuple p x1 x2, p1 => o-assoc *> rewrite (lemma-subst t1 t2, p1) lemma-proj1
---    | unit p, p1 => \case p
---    | Proj1 x, p => o-assoc *> rewrite (lemma-subst t1 t2, p) idp
---    | Proj2 x, p => o-assoc *> rewrite (lemma-subst t1 t2, p) idp
---    | Param p x, p1 => o-assoc *> rewrite (lemma-subst t1 t2, p1) idp
---    | Var p, p1 => o-assoc *> rewrite (lemma-subst t1 t2, p1) idp
---  }
---  | Proj2 t1, t2 => cases (subst t1 t2 arg addPath) \with {
---    | Tuple p x1 x2, p1 => o-assoc *> rewrite (lemma-subst t1 t2, p1) lemma-proj2
---    | unit p, p1 => \case p
---    | Proj1 x, p => o-assoc *> rewrite (lemma-subst t1 t2, p) idp
---    | Proj2 x, p => o-assoc *> rewrite (lemma-subst t1 t2, p) idp
---    | Param p x, p1 => o-assoc *> rewrite (lemma-subst t1 t2, p1) idp
---    | Var p, p1 => o-assoc *> rewrite (lemma-subst t1 t2, p1) idp
---  }
---  | Param p t1, t2 => o-assoc *> rewrite (lemma-subst1 t1 t2) idp
---  \where {
---    \func eq-pair {TP : \Set} {A B A' B' : Type TP} (pA : A = A') (pB : B = B') : Prod A B = Prod A' B' =>
---      rewrite (pA, pB) idp
---
---    \func eq-pair-lemma {TP : \Set} {A B A' B' : Type TP} (p : Prod A B = Prod A' B')
---      : p = eq-pair (proj1-eq (inv p)) (proj2-eq (inv p)) => Path.inProp _ _
---
---    \func lemma-proj1 {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
---                      {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
---                      {cod S A B dom : Type TP} {p : Prod cod S = Prod A B} {x1 : Term P dom A} {x2 : Term P dom B}
---      : CartesianPrecat.proj1 C.∘ transportInv (\lam x0 => C.Hom (IT TyF dom) (IT TyF x0)) p (CartesianPrecat.pair (I TyF TeF x1) (I TyF TeF x2))
---      = I TyF TeF (coe (\lam i => Term P dom (proj1-eq p @ i)) x1 right) =>
---      rewrite (eq-pair-lemma p) lemma-proj1'
---
---    \func lemma-proj1'{C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
---                      {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
---                      {cod S A B dom : Type TP} {p1 : cod = A} {p2 : S = B} {x1 : Term P dom A} {x2 : Term P dom B}
---      : CartesianPrecat.proj1 C.∘ transportInv
---        (\lam x0 => C.Hom (IT TyF dom) (IT TyF x0)) (eq-pair p1 p2)
---        (CartesianPrecat.pair (I TyF TeF x1) (I TyF TeF x2))
---      = I TyF TeF (coe (\lam i => Term P dom (proj1-eq (transportInv (\lam x0 => Prod x0 S = Prod A B) p1
---        (transportInv (\lam x0 => Prod A x0 = Prod A B) p2 idp)) @ i)) x1 right) \elim p1, p2
---      | idp, idp => C.beta1 _ _
---
---    \func lemma-proj2 {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
---                      {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
---                      {cod S A B dom : Type TP} {p : Prod cod S = Prod A B} {x1 : Term P dom A} {x2 : Term P dom B}
---      : CartesianPrecat.proj2 C.∘ transportInv (\lam x0 => C.Hom (IT TyF dom) (IT TyF x0)) p (CartesianPrecat.pair (I TyF TeF x1) (I TyF TeF x2))
---      = I TyF TeF (coe (\lam i => Term P dom (proj2-eq p @ i)) x2 right) =>
---      rewrite (eq-pair-lemma p) lemma-proj2'
---
---    \func lemma-proj2'{C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
---                      {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
---                      {cod S A B dom : Type TP} {p1 : cod = A} {p2 : S = B} {x1 : Term P dom A} {x2 : Term P dom B}
---      : CartesianPrecat.proj2 C.∘ transportInv
---        (\lam x0 => C.Hom (IT TyF dom) (IT TyF x0)) (eq-pair p1 p2)
---        (CartesianPrecat.pair (I TyF TeF x1) (I TyF TeF x2))
---      = I TyF TeF (coe (\lam i => Term P dom (proj2-eq (transportInv (\lam x0 => Prod x0 S = Prod A B) p1
---        (transportInv (\lam x0 => Prod A x0 = Prod A B) p2 idp)) @ i)) x2 right) \elim p1, p2
---      | idp, idp => C.beta2 _ _
---
---    \func lemma-terminal {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
---                         {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
---                         {dom mid cod : Type TP} {t : Term P dom mid} {p : cod = Unit}
---      : transportInv (\lam x0 => Hom (IT TyF mid) (IT TyF x0)) p CartesianPrecat.terminalMap ∘ I TyF TeF t
---      = transportInv (\lam x0 => Hom (IT TyF dom) (IT TyF x0)) p CartesianPrecat.terminalMap \elim p
---      | idp => C.terminal-unique
---
---    \func lemma-id {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
---                   {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
---                   {dom mid cod : Type TP} {t : Term P dom mid} {p : cod = mid}
---      : transportInv (\lam x0 => Hom (IT TyF mid) (IT TyF x0)) p (id (IT TyF mid)) ∘ I TyF TeF t
---      = I TyF TeF (transportInv (Term P dom) p t) \elim p
---      | idp => C.id-left
---
---    \func lemma-pair {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
---                     {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
---                     {dom mid cod A B : Type TP} {t1 : Term P mid A} {t3 : Term P mid B} {t2 : Term P dom mid}
---                     {p : cod = Prod A B} :
---      transportInv (\lam x0 => Hom (IT TyF mid) (IT TyF x0)) p (CartesianPrecat.pair (I TyF TeF t1) (I TyF TeF t3)) ∘ I TyF TeF t2
---        = transportInv (\lam x0 => Hom (IT TyF dom) (IT TyF x0)) p (CartesianPrecat.pair (I TyF TeF t1 `o` I TyF TeF t2) (I TyF TeF t3 `o` I TyF TeF t2)) \elim p
---      | idp => C.pair-comp
---  }
-
 \func lemma-subst {C : CartesianPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
                   {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
                   {dom mid cod : Type TP} (t1 : Term P mid cod) (t2 : Term P dom mid)
@@ -363,17 +260,12 @@
     | pbEta h h' => Mono.isMono {soA.3} h'
   }
 
-\func sigma : \Sigma => ()
-
-\func wrapFTrueDom (A : \Type) => A
-
-\func wrapFFalseDom (A : \Type) => A
 
 \func type-is-set {TP : \Set} {a : Type TP} (p : a = a) : p = idp => Path.inProp p idp
 
 \func rewriteFunc {A : \Type} {a b : A} {B : A -> \Type} (p : a = b) (x : B b) : B a => rewrite p x
 
-\func Ih {C : FinCompletePrecat} {TP : \Set} (TyF : TP -> C) (D C : Type TP) => Hom (IT TyF D) (IT TyF C)
+\func Ih => \lam {C : FinCompletePrecat} {TP : \Set} (TyF : TP -> C) (D C : Type TP) => Hom (IT TyF D) (IT TyF C)
 
 \func Isub {C : FinCompletePrecat} {TP : \Set} (TyF : TP -> C) (A : Type TP) => subobj (IT TyF A)
 
@@ -397,22 +289,26 @@
 
 \func disjunction (A B : \Prop) => TruncP (Either A B)
 
-\func recDisjunction {A B C : \Prop} (p : A -> C) (q : B -> C) : (disjunction A B) -> C => \lam x => \case x \with {
+\func recDisjunction {A B C : \Prop} (p : A -> C) (q : B -> C) (d : disjunction A B) : C => \case d \with {
   | inP (inl a) => p a
   | inP (inr b) => q b
 }
 
+\func recEmpty {C : \Prop} (x : Empty) : C => \case x
+
 \data True
   | cons
 
-\func carry2 {A B : \Type} {C : \Sigma A B -> \Type} (f : \Pi (x : \Sigma A B) -> C x) : \Pi (x : A) -> \Pi (y : B) -> C (x, y) => \lam x y => f (x, y)
-\func ev-unit {A : \Type} (x : \Sigma -> A) => x ()
-\func ev-true {A : \Type} {F : A -> \Type} (f : \Pi(x : A) -> True -> F x) : \Pi (x : A) -> F x => \lam x => f x cons
-
-
---\func test1 {A B C : \Type} (f : A -> C) (g : B -> C) : (Either A B) -> C =>
---  my_meta1 $ \lam (x : ∃ (x : A) (x = x)) => 0
-
-\func test2 {A B : \Set} (F : A -> \Prop) (G : B -> \Prop) (x0 : A) (f : A -> B) : ∃ (x : A) (x = x) =>
-  recExists (\lam t q => inP $ later (t, q)) (inP $ later (x0, idp {A} {x0}))
+\func carry2 => \lam {A B : \Set} {T : \Sigma A B -> \Set} (f : \Pi (x : \Sigma A B) -> T x)
+  => \lam x y => f (x, y)
+\func carry3 => \lam {A B C : \Set} {T : \Sigma A B C -> \Set} (f : \Pi (x : \Sigma A B C) -> T x)
+  => \lam x y z => f (x, y, z)
+\func carry4 => \lam {A B C D : \Set} {T : \Sigma A B C D -> \Set} (f : \Pi (x : \Sigma A B C D) -> T x)
+  => \lam x y z d => f (x, y, z, d)
+\func carry5 => \lam {A B C D E : \Set} {T : \Sigma A B C D E -> \Set} (f : \Pi (x : \Sigma A B C D E) -> T x)
+   => \lam x y z d e => f (x, y, z, d, e)
+\func carry6 => \lam {A B C D E F : \Set} {T : \Sigma A B C D E F -> \Set} (g : \Pi (x : \Sigma A B C D E F) -> T x)
+   => \lam x y z d e f => g (x, y, z, d, e, f)
+\func ev-unit => \lam {A : \Set} (x : \Sigma -> A) => x ()
+\func ev-true => \lam {A : \Set} {F : A -> \Set} (f : \Pi(x : A) -> True -> F x) => \lam x => f x cons
 

@@ -55,22 +55,22 @@ public class FieldsProvider {
     private CoreFunctionDefinition IP;
 
     public ConcreteExpression applyIT(ConcreteExpression type) {
-        return fac.app(fac.ref(IT.getRef()), fac.arg(fac.ref(TyF), true), fac.arg(type, true));
+        return fac.app(fac.ref(IT.getRef()), fac.arg(fac.ref(category), false), fac.arg(fac.ref(TyF), true), fac.arg(type, true));
     }
 
     public ConcreteExpression applyI(ConcreteExpression term) {
-        return fac.app(fac.ref(I.getRef()), fac.arg(fac.ref(TyF), true), fac.arg(fac.ref(TeF), true),
+        return fac.app(fac.ref(I.getRef()), fac.arg(fac.ref(category), false), fac.arg(fac.ref(TyF), true), fac.arg(fac.ref(TeF), true),
                 fac.arg(term, true));
     }
 
     public ConcreteExpression applyIF(ConcreteExpression form) {
-        return fac.app(fac.ref(IF.getRef()), fac.arg(fac.ref(TyF), true), fac.arg(fac.ref(TeF), true),
+        return fac.app(fac.ref(IF.getRef()), fac.arg(fac.ref(category), false), fac.arg(fac.ref(TyF), true), fac.arg(fac.ref(TeF), true),
                 fac.arg(fac.ref(FF), true), fac.arg(form, true));
     }
 
-    public ConcreteExpression applyIP(ConcreteExpression proof) {
-        return fac.app(fac.ref(IP.getRef()), fac.arg(fac.ref(TyF), true), fac.arg(fac.ref(TeF), true),
-                fac.arg(fac.ref(FF), true), fac.arg(fac.ref(PF), true), fac.arg(proof, true));
+    public ConcreteExpression applyIP(ConcreteExpression hyp, ConcreteExpression proof) {
+        return fac.app(fac.ref(IP.getRef()), fac.arg(fac.ref(category), false), fac.arg(fac.ref(TyF), true), fac.arg(fac.ref(TeF), true),
+                fac.arg(fac.ref(FF), true), fac.arg(fac.ref(PF), true), fac.arg(hyp, false), fac.arg(proof, true));
     }
 
     @Dependency(module = "CategoryLanguage.Util", name = "Type")
@@ -251,7 +251,6 @@ public class FieldsProvider {
     }
 
 
-
     public ExpressionAndPattern ffalse(ExpressionAndPattern dom) {
         return new ExpressionAndPattern(fac.app(fac.ref(FFalse.getRef()),
                 fac.arg(fac.ref(TP), false),
@@ -278,6 +277,8 @@ public class FieldsProvider {
 
     public ExpressionAndPattern exists(ExpressionAndPattern dom1, ExpressionAndPattern form) {
         return new ExpressionAndPattern(fac.app(fac.ref(FExists.getRef()),
+                fac.arg(fac.hole(), false),  fac.arg(fac.hole(), false),
+                fac.arg(fac.hole(), false), fac.arg(fac.hole(), false),
                 fac.arg(dom1.expr, false), fac.arg(form.expr, true)),
 
                 fac.conPattern(FExists.getRef(), dom1.pattern.implicit(), form.pattern));
@@ -285,6 +286,8 @@ public class FieldsProvider {
 
     public ExpressionAndPattern forall(ExpressionAndPattern dom1, ExpressionAndPattern form) {
         return new ExpressionAndPattern(fac.app(fac.ref(Forall.getRef()),
+                fac.arg(fac.hole(), false), fac.arg(fac.hole(), false),
+                fac.arg(fac.hole(), false), fac.arg(fac.hole(), false),
                 fac.arg(dom1.expr, false), fac.arg(form.expr, true)),
 
                 fac.conPattern(Forall.getRef(), dom1.pattern.implicit(), form.pattern));
@@ -336,6 +339,8 @@ public class FieldsProvider {
     private CoreFunctionDefinition applForallProof;
     @Dependency(module = "CategoryLanguage.Heyting", name = "Proof.applicationProof")
     private CoreConstructor applicationProof;
+    @Dependency(module = "CategoryLanguage.Heyting", name = "absurdProof'")
+    private CoreFunctionDefinition absurdProof;
 
 
     ConcreteExpression idProof(ConcreteExpression dom, ConcreteExpression form) {
@@ -471,7 +476,7 @@ public class FieldsProvider {
         return fac.app(fac.ref(paramProof.getRef()),
                 fac.arg(hyp, true),
                 fac.arg(form, true),
-                fac.arg(fac.number(n), true),
+                fac.arg(fac.typed(fac.number(n), fac.app(fac.ref(ext.prelude.getFin().getRef()), fac.arg(fac.number(1), true))), true),
                 fac.arg(term, true),
                 fac.arg(proofHyp, true));
     }
@@ -488,14 +493,18 @@ public class FieldsProvider {
                 fac.arg(fac.ref(ext.prelude.getIdp().getRef()), true));
     }
 
-    ConcreteExpression recExistsProof(ConcreteExpression existsProof, ConcreteExpression proof) {
+    ConcreteExpression recExistsProof(ConcreteExpression f, ConcreteExpression f1,
+                                      ConcreteExpression existsProof, ConcreteExpression proof) {
         return fac.app(fac.ref(recExistsProof.getRef()),
+                fac.arg(f, true),
+                fac.arg(f1, true),
                 fac.arg(existsProof, true),
                 fac.arg(proof, true));
     }
 
-    ConcreteExpression existsConsProof(ConcreteExpression term, ConcreteExpression proof) {
+    ConcreteExpression existsConsProof(ConcreteExpression form, ConcreteExpression term, ConcreteExpression proof) {
         return fac.app(fac.ref(existsConsProof.getRef()),
+                fac.arg(form, true),
                 fac.arg(term, true),
                 fac.arg(proof, true));
     }
@@ -507,13 +516,21 @@ public class FieldsProvider {
                 fac.arg(p2, true));
     }
 
-    ConcreteExpression inlProof(ConcreteExpression proof) {
+    ConcreteExpression inlProof(ConcreteExpression f2, ConcreteExpression proof) {
         return fac.app(fac.ref(inlProof.getRef()),
+                fac.arg(f2, true),
                 fac.arg(proof, true));
     }
 
-    ConcreteExpression inrProof(ConcreteExpression proof) {
+    ConcreteExpression inrProof(ConcreteExpression f1, ConcreteExpression proof) {
         return fac.app(fac.ref(inrProof.getRef()),
+                fac.arg(f1, true),
+                fac.arg(proof, true));
+    }
+
+    ConcreteExpression absurdProof(ConcreteExpression f, ConcreteExpression proof) {
+        return fac.app(fac.ref(absurdProof.getRef()),
+                fac.arg(f, true),
                 fac.arg(proof, true));
     }
 
@@ -535,7 +552,7 @@ public class FieldsProvider {
     }
 
     ConcreteExpression appForallProof(ConcreteExpression forallProof, ConcreteExpression term) {
-        return fac.app(fac.ref(applicationProof.getRef()),
+        return fac.app(fac.ref(applForallProof.getRef()),
                 fac.arg(forallProof, true),
                 fac.arg(term, true));
     }
