@@ -10,11 +10,8 @@ import org.arend.ext.core.context.CoreParameter;
 import org.arend.ext.core.definition.*;
 import org.arend.ext.core.expr.*;
 import org.arend.ext.core.ops.CMP;
-import org.arend.ext.core.ops.NormalizationMode;
 import org.arend.ext.dependency.Dependency;
 import org.arend.ext.error.ErrorReporter;
-import org.arend.ext.error.GeneralError;
-import org.arend.ext.error.LocalError;
 import org.arend.ext.error.TypecheckingError;
 import org.arend.ext.reference.ArendRef;
 import org.arend.ext.typechecking.BaseMetaDefinition;
@@ -23,8 +20,6 @@ import org.arend.ext.typechecking.ExpressionTypechecker;
 import org.arend.ext.typechecking.TypedExpression;
 import org.arend.ext.util.Pair;
 import org.arend.lib.StdExtension;
-import org.arend.lib.error.TypeError;
-import org.arend.lib.meta.util.SubstitutionMeta;
 import org.arend.lib.util.Utils;
 import org.arend.lib.util.Values;
 import org.jetbrains.annotations.NotNull;
@@ -41,7 +36,12 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
     ErrorReporter errorReporter;
     ConcreteSourceNode marker;
     private final StdExtension ext;
-    public FieldsProvider fp = new FieldsProvider();
+
+    public HeytingFieldsProvider heytingFieldsProvider = new HeytingFieldsProvider();
+    public RegularFieldsProvider regularFieldsProvider = new RegularFieldsProvider();
+    public CoherentFieldsProvider coherentFieldsProvider = new CoherentFieldsProvider();
+
+    public FieldsProvider fp;
 
 
     @Dependency(module = "Paths", name = "transport")
@@ -52,8 +52,6 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
     private CoreFunctionDefinition inv;
     @Dependency(module = "Paths", name = "pmap")
     private CoreFunctionDefinition pmap;
-    @Dependency(module = "CategoryLanguage.Heyting", name = "HeytingPrecat")
-    private CoreClassDefinition heytingPrecat;
     @Dependency(module = "CategoryLanguage.Util", name = "subobj")
     private CoreFunctionDefinition subobj;
     @Dependency(module = "CategoryLanguage.Util", name = "subobj-inclusion")
@@ -88,8 +86,8 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
     private CoreFunctionDefinition TypeIsSet;
     @Dependency(module = "CategoryLanguage.Util", name = "rewriteFunc")
     private CoreFunctionDefinition RewriteFunc;
-    @Dependency(module = "CategoryLanguage.Util", name = "IsubInc")
-    private CoreFunctionDefinition IsubInc;
+    @Dependency(module = "CategoryLanguage.Util", name = "subobj-inclusion")
+    private CoreFunctionDefinition subInc;
 
 
     public CategoryLangMeta1(StdExtension ext) {
@@ -666,12 +664,9 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
     }
 
 
-
-
-
     private ConcreteExpression constructTermPredLets(ConcreteExpression expr) {
 
-        var typeType = fac.app(fac.ref(fp.Type.getRef()), fac.arg(fac.ref(fp.TP), true));
+        var typeType = fac.app(fac.ref(fp.getType().getRef()), fac.arg(fac.ref(fp.TP), true));
 
         var Plam = constructTermlam(true);
         var TeFlam = constructTermlam(false);
@@ -763,30 +758,27 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
 
 
     private ConcreteExpression constructProofsLets(ConcreteExpression expr) {
-        var typeType = fac.app(fac.ref(fp.Type.getRef()), fac.arg(fac.ref(fp.TP), true));
+        var typeType = fac.app(fac.ref(fp.getType().getRef()), fac.arg(fac.ref(fp.TP), true));
 
         var PPlam = constructProofslam(true);
         var PFlam = constructProofslam(false);
 
         var domLocal1 = fac.local("dom");
-        var formulaType1 = fac.app(fac.ref(fp.Formula.getRef()), fac.arg(fac.ref(fp.P), true),
+        var formulaType1 = fac.app(fac.ref(fp.getFormula().getRef()), fac.arg(fac.ref(fp.P), true),
                 fac.arg(fac.ref(fp.FP), true), fac.arg(fac.ref(domLocal1), true));
         var PPlamType = fac.pi(List.of(fac.param(true, List.of(domLocal1), typeType),
                         fac.param(true, List.of(fac.local("hyp")), formulaType1), fac.param(true, List.of(fac.local("form")), formulaType1)),
                 fac.universe(null, fac.numLevel(0)));
 
         var domLocal = fac.local("dom");
-        var formulaType = fac.app(fac.ref(fp.Formula.getRef()), fac.arg(fac.ref(fp.P), true),
+        var formulaType = fac.app(fac.ref(fp.getFormula().getRef()), fac.arg(fac.ref(fp.P), true),
                 fac.arg(fac.ref(fp.FP), true), fac.arg(fac.ref(domLocal), true));
         var hypLocal = fac.local("hyp");
         var formLocal = fac.local("form");
         var nLocal = fac.local("n");
         var nType = fac.app(fac.app(fac.ref(fp.PP), fac.arg(fac.ref(domLocal), true)),
                 fac.arg(fac.ref(hypLocal), true), fac.arg(fac.ref(formLocal), true));
-        var PFcodomain = fac.app(fac.ref(IsubInc.getRef()),
-                fac.arg(fac.ref(fp.TyF), true), fac.arg(fac.ref(fp.TeF), true),
-                fac.arg(fac.ref(fp.FF), true),
-                fac.arg(fac.ref(hypLocal), true), fac.arg(fac.ref(formLocal), true));
+        var PFcodomain = fac.app(fac.ref(subInc.getRef()), fac.arg(fp.applyIF(fac.ref(hypLocal)), true), fac.arg(fp.applyIF(fac.ref(formLocal)), true));
         var PFlamType = fac.pi(List.of(fac.param(true, List.of(domLocal), typeType),
                 fac.param(true, List.of(hypLocal), formulaType), fac.param(true, List.of(formLocal), formulaType),
                 fac.param(true, List.of(nLocal), nType)), PFcodomain);
@@ -796,7 +788,6 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
 
         return fac.letExpr(false, false, List.of(PPclause, PFclause), expr);
     }
-
 
 
     private ConcreteExpression constructFullProof(CoreExpression expr) {
@@ -1091,7 +1082,7 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
 
     private ConcreteExpression constructLambda(ConcreteExpression proof) {
         List<ConcreteParameter> typeParams = new ArrayList<>();
-        var categoryParam = fac.param(List.of(fp.category), fac.app(fac.ref(heytingPrecat.getRef()), List.of()));
+        var categoryParam = fac.param(List.of(fp.category), fac.app(fac.ref(fp.getCategoryDef().getRef()), List.of()));
         typeParams.add(categoryParam);
         for (var x : typesParameters.getValues()) {
             typeParams.add(fac.param(List.of(Objects.requireNonNull(getRef(x))), fac.ref(fp.category)));
@@ -1143,19 +1134,51 @@ public class CategoryLangMeta1 extends BaseMetaDefinition {
     public TypedExpression invokeMeta(@NotNull ExpressionTypechecker typechecker, @NotNull ContextData contextData) {
         try {
             fac = ext.factory.withData(contextData.getMarker());
-            fp.init(fac, ext);
             this.typechecker = typechecker;
             errorReporter = typechecker.getErrorReporter();
             marker = contextData.getMarker();
+
+
+            List<? extends ConcreteArgument> args = contextData.getArguments();
+            ConcreteExpression input = null;
+            if (args.size() == 1) {
+                input = args.get(0).getExpression();
+                fp = heytingFieldsProvider;
+            } else if (args.size() == 2) {
+                var arg0 = args.get(0).getExpression();
+                if (arg0 instanceof ConcreteStringExpression stringExpression) {
+                    var categoryType = stringExpression.getUnescapedString();
+                    switch (categoryType) {
+                        case "regular" -> fp = regularFieldsProvider;
+                        case "coherent" -> fp = coherentFieldsProvider;
+                        case "heyting" -> fp = heytingFieldsProvider;
+                        default -> {
+                            errorReporter.report(new TypecheckingError("In case there are two arguments, first argument has to be string literal 'regular', 'coherent' or 'heyting'", marker));
+                            return null;
+                        }
+                    }
+                    input = args.get(1).getExpression();
+                } else {
+                    errorReporter.report(new TypecheckingError("In case there are two arguments, first argument has to be string literal 'regular', 'coherent' or 'heyting'", marker));
+                    return null;
+                }
+            } else {
+                errorReporter.report(new TypecheckingError("Function can take one or two arguments" +
+                        "In case there are two arguments, first argument has to be string literal 'regular', 'coherent' or 'heyting'" +
+                        "Last argument must be lambda function, that have sets parameters, functional parameters, predicate parameters and hypothesis parameters", marker));
+                return null;
+            }
+
+            fp.init(fac, ext, errorReporter, marker);
+
             refs = new ArrayList<>();
             typesParameters = new Values<>(typechecker, marker);
             termsParameters = new ArrayList<>();
             predicateParameters = new ArrayList<>();
             proofParameters = new ArrayList<>();
-            List<? extends ConcreteArgument> args = contextData.getArguments();
 
-            var lam = args.get(0).getExpression();
-            var lamCore = typechecker.typecheck(args.get(0).getExpression(), null);
+            var lam = input;
+            var lamCore = typechecker.typecheck(input, null);
             if (lamCore == null || lamCore.getExpression() instanceof CoreErrorExpression) {
                 errorReporter.report(new TypecheckingError("Error when typechecking input", marker));
                 return null;

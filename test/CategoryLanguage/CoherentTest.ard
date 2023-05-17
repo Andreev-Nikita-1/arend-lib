@@ -4,16 +4,16 @@
 \import Logic
 \import Logic.Meta
 
-\func test1-rec => \let q => my_meta1 $ \lam (F G H : \Prop) (h : F -> H)
+\func test1-rec => \let q => category_lang_meta "coherent" $ \lam (F G H : \Prop) (h : F -> H)
                                     (h' : G -> H) (d : disjunction F G)
                                     => recDisjunction (\lam q => h q) (\lam q => h' q) d \in 0
 
-\func test-inl => \let q => my_meta1 $ \lam (F G : \Prop) (h : F)
+\func test-inl => \let q => category_lang_meta "coherent" $ \lam (F G : \Prop) (h : F)
                                     => (inP (inl h) : disjunction F G)  \in 0
 
-\func test-inr => \let q => my_meta1 $ \lam (F G : \Prop) (h : G)
+\func test-inr => \let q => category_lang_meta "coherent" $ \lam (F G : \Prop) (h : G)
                                        => (inP (inr h) : disjunction F G)  \in 0
 
-\func test-empty => \let q => my_meta1 $ \lam (F : \Prop) (h : Empty)
+\func test-empty => \let q => category_lang_meta "coherent" $ \lam (F : \Prop) (h : Empty)
                                     => (recEmpty h : F)  \in 0
 

@@ -217,12 +217,59 @@
   | proj1Proof {f2 : Formula P FP dom} (hyp = Conj f f2)
   | proj2Proof {f1 : Formula P FP dom} (hyp = Conj f1 f)
   | tupleProof {f1 f2 : Formula P FP dom} (f = Conj f1 f2) (Proof PP hyp f1) (Proof PP hyp f2)
-  | hypothesis (PP dom hyp f)
+  | paramProof (PP dom hyp f)
   | trueProof (f = FTrue)
   | existsProof1 {dom' dom'' : Type TP} {f' : Formula P FP dom''} (p : dom = Prod dom' dom'')
                  (f = rewrite p (substF f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (q : Proof PP (FExists (rewriteI p hyp)) f')
   | existsProof2 {dom' : Type TP} {hyp' : Formula P FP (Prod dom' dom)} (hyp = FExists hyp') (Proof PP hyp' (substF f (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
   | existsProofSubst {dom' : Type TP} {t : Term P dom dom'} {f' : Formula P FP (Prod dom' dom)} (hyp = substF f' (Tuple idp t (Var idp))) (f = FExists f')
+  | existsProofExtra {dom' : Type TP} {f' : Formula P FP (Prod dom' dom)} {h : Formula P FP dom}
+                     (hyp = Conj (FExists f') h)
+                     (f = FExists (Conj f' (substF h (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))))
+
+
+\func proj1Proof' {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
+                  {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                  {hyp f f' : Formula TP FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f => transProof p (proj1Proof idp)
+
+\func proj2Proof' {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
+                  {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                  {hyp f f' : Formula TP FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f' => transProof p (proj2Proof idp)
+
+
+\func proofParam {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom0 dom : Type SP} {FP : Type SP -> \Set}
+                 {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set} {hyp0 : Formula TP FP dom0}
+                 (hyp f : Formula TP FP dom)
+                 (n : PP dom hyp f) (t : Term TP dom0 dom) (p : Proof PP hyp0 (substF hyp t)) : Proof PP hyp0 (substF f t)
+  => transProof p (substProof idp idp (paramProof n))
+
+\func conjSymLemma {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
+                   {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                   (f g : Formula TP FP dom) : Proof PP (Conj f g) (Conj g f) =>
+  tupleProof idp (proj2Proof idp) (proj1Proof idp)
+
+
+\func existsLemma {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom dom' : Type SP} {FP : Type SP -> \Set}
+                  {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                  (f : Formula TP FP (Prod dom' dom)) (g : Formula TP FP dom)
+  : Proof PP (Conj (FExists f) g) (FExists (Conj f (substF g (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))) => existsProofExtra idp idp
+
+\func recExistsProof {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom dom' : Type SP} {FP : Type SP -> \Set}
+                     {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set} {hyp : Formula TP FP dom}
+                     (f : Formula TP FP dom)
+                     (f' : Formula TP FP (Prod dom' dom))
+                     (ep : Proof PP hyp (FExists f'))
+                     (p : Proof PP (Conj f' (substF hyp (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (substF f (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
+  : Proof PP hyp f => transProof (transProof (tupleProof idp ep (idProof idp)) (existsLemma f' hyp))
+    (existsProof2 idp p)
+
+\func existsConsProof {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom dom' : Type SP} {FP : Type SP -> \Set}
+                      {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set} {hyp : Formula TP FP dom}
+                      (f' : Formula TP FP (Prod dom' dom)) (t : Term TP dom dom')
+                      (p : Proof PP hyp (substF f' (Tuple idp t (Var idp)))) : Proof PP hyp (FExists f') =>
+  transProof p (existsProofSubst idp idp)
+
+
 
 \func IP
   {C : RegularPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
@@ -283,7 +330,7 @@
          | q => o-assoc *> pmap ((IF TyF TeF FF f2).2 `o`) (Pullback.pbBeta2 {pb} {_} {in1} {in2} {p1 *> inv p2})
     \in (Pullback.pbMap {pb} in1 in2 (p1 *> inv p2),
          q *> p2))
-  | hypothesis p => PF dom hyp form p
+  | paramProof p => PF dom hyp form p
   | trueProof p => rewrite p ((IF TyF TeF FF hyp).2, id-left)
   | existsProof1 {dom'} {dom''} {f'} p p1 proof => rewrite p1 (exists-lem1 {C}{TP}{P}{TyF}{TeF}{FP}{FF}{dom}{PP}{PF}{dom'}{dom''}{form}{hyp}{p}{f'}{p1}{proof})
   | existsProof2 {dom'} {hyp'} p proof => rewrite p (
@@ -307,6 +354,7 @@
       | img => C.image (C.proj2 `o` If'.2)
     \in subobj-inclusion-transitivity x1 x2 (IF TyF TeF FF (FExists f')) in1 (Image.im2 {img} `o` Pullback.pbProj1 {pb},
                                                                              inv o-assoc *> rewrite (Image.im-comm {img}) (o-assoc *> rewrite (Pullback.pbCoh {pb}) (inv o-assoc *> rewrite C.beta2 id-left))))
+  | existsProofExtra p p1 => {?}
 
 
   \where {

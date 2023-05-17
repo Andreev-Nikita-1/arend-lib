@@ -1,18 +1,21 @@
+\import Category.Limit
 \import Category.Meta
+\import CategoryLanguage.Regular
 \import CategoryLanguage.Util
+\import Data.List (!!)
 \import Function.Meta
 \import Logic
 \import Logic.Meta
 \import Meta
 \import Paths
 
-\func test-cons => \let q => my_meta1 $ \lam (A : \Set) (t : A) (F : A -> \Prop) (h : F t) => inP ((t, h) : \Sigma (x : A) (F x)) \in 0
+\func test-cons => \let q => category_lang_meta "regular" $ \lam (A : \Set) (t : A) (F : A -> \Prop) (h : F t) => inP ((t, h) : \Sigma (x : A) (F x)) \in 0
 
-\func test-rec => \let q => my_meta1 $ \lam (A : \Set) (t s : A) (F G : A -> \Prop) (h : \Pi(x : A) -> F x -> G s) (h1 : F t)
+\func test-rec => \let q => category_lang_meta "regular" $ \lam (A : \Set) (t s : A) (F G : A -> \Prop) (h : \Pi(x : A) -> F x -> G s) (h1 : F t)
                                     => recExists (\lam x q => h x q) (inP ((t, h1) : \Sigma (x : A) (F x))) \in 0
 
-\func test1 => \let q => my_meta1 $ \lam (A : \Set) (t t' : A) (h : ∃ (x : A) (\Sigma (t = x) (t' = x)))
+\func test1 => \let q => category_lang_meta "regular" $ \lam (A : \Set) (t t' : A) (h : ∃ (x : A) (\Sigma (t = x) (t' = x)))
                                     => recExists (\lam x (q : \Sigma (t = x) (t' = x)) => q.1 *> inv q.2) h \in 0
 
-\func test2 => \let q => my_meta1 (\lam (A : \Set) (t : A) (P : A -> \Prop) (h : \Pi (x : A) -> P x) => inP ((t, h t) : \Sigma (x : A) (P x))) \in 0
+\func test2 => \let q => category_lang_meta "regular" (\lam (A : \Set) (t : A) (P : A -> \Prop) (h : \Pi (x : A) -> P x) => inP ((t, h t) : \Sigma (x : A) (P x))) \in 0
 

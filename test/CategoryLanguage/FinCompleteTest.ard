@@ -2,7 +2,7 @@
 \import Paths
 
 \func test-e=e' => \let q =>
-  my_meta1 (\lam
+  category_lang_meta (\lam
   (A : \Set)
   (star : A -> A -> A)
   (e e' : A)
@@ -11,7 +11,7 @@
   => inv (h1 e') *> h2 e) \in 0
 
 \func test-inv=inv' => \let q =>
-  my_meta1 (\lam
+  category_lang_meta (\lam
   (A : \Set)
   (star : A -> A -> A)
   (e : A)
@@ -27,7 +27,7 @@
              *> inv (assh (il x) x (ir x)) *> pmap (\lam (x' : A) => star x' (ir x)) (ilh x) *> erh (ir x)) \in 0
 
 \func test-transport => \let q =>
-  my_meta1 (\lam
+  category_lang_meta (\lam
   (A B : \Set)
   (s s' : A -> B)
   (f : B -> \Prop)
@@ -36,7 +36,7 @@
   => \lam (x : A) => transport (\lam t => f t) (eq x) (h x)) \in 0
 
 \func test-transport-1 => \let q =>
-  my_meta1 (\lam
+  category_lang_meta (\lam
   (A B C : \Set)
   (s s' : A -> B)
   (g : B -> C)
@@ -49,7 +49,7 @@
 
 \func test-subst => 0 \where {
   \func test-1 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B : \Set)
     (t : B -> A)
     (f g : A -> \Prop)
@@ -57,7 +57,7 @@
     => \lam (y : B) (q : f (t y)) => h (t y) q) \in 0
 
   \func test-2 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B : \Set)
     (s : A -> A -> A)
     (e : A)
@@ -69,35 +69,35 @@
 
 \func test-proj => 0 \where {
   \func test-1 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A : \Set)
     (f f' g : A -> \Prop)
     (h : \Pi(x : A) -> g x -> \Sigma (f x) (f' x))
     => \lam (x : A) (q : g x) => (h x q).1) \in 0
 
   \func test-2 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A : \Set)
     (f f' g : A -> \Prop)
     (h : \Pi(x : A) -> g x -> \Sigma (f x) (f' x))
     => \lam (x : A) (q : g x) => (h x q).2) \in 0
 
   \func test-of-3-1 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A : \Set)
     (f f' f'' g : A -> \Prop)
     (h : \Pi(x : A) -> g x -> \Sigma (f x) (f' x) (f'' x))
     => \lam (x : A) (q : g x) => (h x q).1) \in 0
 
   \func test-of-3-2 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A : \Set)
     (f f' f'' g : A -> \Prop)
     (h : \Pi(x : A) -> g x -> \Sigma (f x) (f' x) (f'' x))
     => \lam (x : A) (q : g x) => (h x q).2) \in 0
 
   \func test-of-3-3 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A : \Set)
     (f f' f'' g : A -> \Prop)
     (h : \Pi(x : A) -> g x -> \Sigma (f x) (f' x) (f'' x))
@@ -106,7 +106,7 @@
 
 \func test-tuple => 0 \where {
   \func test-1 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A : \Type)
     (f f' g : A -> \Prop)
     (h : \Pi(x : A) -> g x -> f x)
@@ -114,7 +114,7 @@
     => \lam (x : A) (q : g x) => (h x q, h' x q)) \in 0
 
   \func test-2 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A : \Type)
     (f f' g : A -> \Prop)
     (h : \Pi(x : A) -> g x -> f x)
@@ -124,7 +124,7 @@
 
 \func test-incomplete-domain-or-hyp => 0 \where {
   \func test-1 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A : \Type)
     (c : A)
     (f g : A -> \Prop)
@@ -132,7 +132,7 @@
     => \lam (q : g c) => (q, h c q)) \in 0
 
   \func test-2 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B : \Type)
     (c : A)
     (t : A -> B)
@@ -143,7 +143,7 @@
     => \lam (q : f c) => (q, h' (t c) (h c q))) \in 0
 
   \func test-3 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A : \Type)
     (c : A)
     (f : A -> \Prop)
@@ -151,7 +151,7 @@
     => h c) \in 0
 
   \func test-4 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B : \Type)
     (t : B -> A)
     (f : A -> \Prop)
@@ -159,7 +159,7 @@
     => \lam (y : B) => h (t y)) \in 0
 
   \func test-5 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A : \Type)
     (f f' : A -> \Prop)
     (c : A)
@@ -170,7 +170,7 @@
 
 \func test-equalities => 0 \where {
   \func test-pmap => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B C : \Type)
     (t1 t2 : A -> B)
     (fun : B -> C)
@@ -178,7 +178,7 @@
     => \lam (x : A) => pmap (\lam t => fun t) (h x)) \in 0
 
   \func test-concat => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B : \Type)
     (t1 t2 t3 : A -> B)
     (h : \Pi(x : A) -> t1 x = t2 x)
@@ -186,7 +186,7 @@
     => \lam (x : A) => h x *> h' x) \in 0
 
   \func test-concat-1 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B : \Type)
     (t1 t2 t3 : A -> B)
     (f : A -> \Prop)
@@ -195,7 +195,7 @@
     => \lam (x : A) (p : f x) => h x p *> h' x) \in 0
 
   \func test-concat-2 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B C : \Type)
     (t1 t2 t3 : A -> B)
     (s : C -> A)
@@ -206,7 +206,7 @@
     => \lam (c : C) => h (s c) (hf c) *> h' (s c)) \in 0
 
   \func test-idp => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B : \Type)
     (s : A -> B)
     (bin : A -> B -> \Prop)
@@ -214,7 +214,7 @@
     => \lam (x : A) => h x x idp) \in 0
 
   \func test-transport => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B : \Type)
     (s s' : A -> B)
     (f : B -> \Prop)
@@ -223,7 +223,7 @@
     => \lam (x : A) => transport (\lam t => f t) (eq x) (h x)) \in 0
 
   \func test-transport-1 => \let q =>
-    my_meta1 (\lam
+    category_lang_meta (\lam
     (A B C : \Type)
     (s s' : A -> B)
     (g : B -> C)

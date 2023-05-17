@@ -136,7 +136,9 @@ public class StdExtension implements ArendExtension {
     provider.load(categoryLangMeta.ccfp);
 
     provider.load(categoryLangMeta1);
-    provider.load(categoryLangMeta1.fp);
+    provider.load(categoryLangMeta1.coherentFieldsProvider);
+    provider.load(categoryLangMeta1.regularFieldsProvider);
+    provider.load(categoryLangMeta1.heytingFieldsProvider);
     provider.load(categoryLangMeta1.canonizer);
 
     provider.load(linearSolverMeta);
@@ -361,8 +363,8 @@ public class StdExtension implements ArendExtension {
     contributor.declare(category, new LongName("my_meta"),
             "kek",
             Precedence.DEFAULT, categoryLangMeta);
-    contributor.declare(category, new LongName("my_meta1"),
-            "kek",
+    contributor.declare(category, new LongName("category_lang_meta"),
+            "Translates proof into proof of category theory statement.",
             Precedence.DEFAULT, categoryLangMeta1);
 
   }

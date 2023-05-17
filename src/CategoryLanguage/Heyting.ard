@@ -78,8 +78,8 @@
   }
 }
 
-\func beck-chevalley-condition {Cat : HeytingPrecat} {P A B C : Cat} (h : Hom P A) (f : Hom A C) (k : Hom P B) (g : Hom B C)
-                               (is-pb : Pullback g f P k h) (so : subobj A)
+\func beck-chevalley-condition {Cat : HeytingPrecat} {TP A B C : Cat} (h : Hom TP A) (f : Hom A C) (k : Hom TP B) (g : Hom B C)
+                               (is-pb : Pullback g f TP k h) (so : subobj A)
   : bi-inclusion (Cat.r-adj k (pullback-of-subobj h so)) (pullback-of-subobj g (Cat.r-adj f so)) =>
   (Equiv.f {(RightAdjoint.isAdjoint {Cat.l-adj g}) {Cat.r-adj k (pullback-functor h so)}}
        (Equiv.f {(RightAdjoint.isAdjoint {Cat.r-adj f}) {Cat.exists-functor g (Cat.r-adj k (pullback-functor h so))}}
@@ -99,8 +99,8 @@
                    (Equiv.sec {(RightAdjoint.isAdjoint {Cat.l-adj g}) {pullback-functor g (Cat.r-adj f so)}}
                        (id _, id-right)))))
   ) \where {
-  \func beck-chevalley-lemma {Cat : HeytingPrecat} {P A B C : Cat} (h : Hom P A) (f : Hom A C) (k : Hom P B) (g : Hom B C)
-                             (is-pb : Pullback g f P k h) (so : subobj B)
+  \func beck-chevalley-lemma {Cat : HeytingPrecat} {TP A B C : Cat} (h : Hom TP A) (f : Hom A C) (k : Hom TP B) (g : Hom B C)
+                             (is-pb : Pullback g f TP k h) (so : subobj B)
     : bi-inclusion (Cat.exists-functor h (pullback-of-subobj k so)) (pullback-of-subobj f (Cat.exists-functor g so)) =>
     pullback-def-to-inclusions {_}{_}{_}{_} {Cat.exists-functor h (pullback-of-subobj k so)}{Cat.exists-functor g so}
         (image-stability (g `o` so.2) f (\let pb-k => pullback so.2 k \in \new Pullback {
@@ -116,21 +116,26 @@
         }) (image (g `o` so.2)) (image (h `o` Pullback.pbProj2 {pullback so.2 k}))).2
 }
 
-\data Formula {TP : \Set} (P : Type TP -> Type TP -> \Set) (FP : Type TP -> \Set) (dom : Type TP)
-  | Conj (Formula P FP dom) (Formula P FP dom)
-  | Eq {T : Type TP} (Term P dom T) (Term P dom T)
-  | FParam {dom' : Type TP} (FP dom') (Term P dom dom')
+\data Formula {SP : \Set} (TP : Type SP -> Type SP -> \Set)
+              (FP : Type SP -> \Set) (dom : Type SP)
+  | Conj (Formula TP FP dom) (Formula TP FP dom)
+  | Eq {T : Type SP} (Term TP dom T) (Term TP dom T)
+  | FParam {dom' : Type SP} (FP dom') (Term TP dom dom')
   | FTrue
-  | FExists {dom' : Type TP} (Formula P FP (Prod dom' dom))
+  | FExists {dom' : Type SP} (Formula TP FP (Prod dom' dom))
   | FFalse
-  | Disj (Formula P FP dom) (Formula P FP dom)
-  | Impl (Formula P FP dom) (Formula P FP dom)
-  | Forall {dom' : Type TP} (Formula P FP (Prod dom' dom))
+  | Disj (Formula TP FP dom) (Formula TP FP dom)
+  | Impl (Formula TP FP dom) (Formula TP FP dom)
+  | Forall {dom' : Type SP} (Formula TP FP (Prod dom' dom))
 
-\func IF {C : HeytingPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
-         (TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
-         {FP : Type TP -> \Set} (FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom))
-         {dom : Type TP} (form : Formula P FP dom) : subobj (IT TyF dom) \elim form
+\func IF {C : HeytingPrecat} {SP : \Set}
+         {TP : Type SP -> (Type SP) -> \Set} (TyF : SP -> C)
+         (TeF : \Pi (ctx' : Type SP) -> \Pi (T' : Type SP)
+                -> TP ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
+         {FP : Type SP -> \Set}
+         (FF : \Pi(dom : Type SP) -> FP dom -> subobj (IT TyF dom))
+         {dom : Type SP} (form : Formula TP FP dom)
+  : subobj (IT TyF dom) \elim form
   | Eq t t1 => \let e => C.equalizer (I TyF TeF t) (I TyF TeF t1) \in (e, Equalizer.eql {e}, \new Mono (Equalizer.eql {e}) (Equalizer.eqMono {e}))
   | Conj form1 form2 =>
     \let (sub, h, m) => IF TyF TeF FF form2
@@ -146,8 +151,10 @@
       (pullback-of-subobj (IF TyF TeF FF form1).2 (IF TyF TeF FF form2))
   | Forall form => RightAdjoint.F {HeytingPrecat.r-adj C.proj2} (IF TyF TeF FF form)
 
-\func substF {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set} {dom dom' : Type TP}
-             (form : Formula P FP dom) (term : Term P dom' dom) : Formula P FP dom' \elim form
+\func substF {SP : \Set} {TP : Type SP -> Type SP -> \Set}
+             {FP : Type SP -> \Set} {dom dom' : Type SP}
+             (form : Formula TP FP dom) (term : Term TP dom' dom)
+  : Formula TP FP dom' \elim form
   | Conj form1 form2 => Conj (substF form1 term) (substF form2 term)
   | Eq t t1 => Eq (subst t term) (subst t1 term)
   | FParam f t => FParam f (subst t term)
@@ -158,21 +165,25 @@
   | Impl form1 form2 => Impl (substF form1 term) (substF form2 term)
   | Forall form => Forall (substF form (Tuple idp (Proj1 (Var idp)) (subst term (Proj2 (Var idp)))))
 
-\func lemma-substF-subobjects  {C : HeytingPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
-                               {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
-                               {FP : Type TP -> \Set} {FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
-                               {dom dom' : Type TP} (form : Formula P FP dom) (term : Term P dom' dom) =>
+\func lemma-substF-subobjects  {C : HeytingPrecat} {SP : \Set} {TP : Type SP -> (Type SP) -> \Set} {TyF : SP -> C}
+                               {TeF : \Pi (ctx' : Type SP) -> \Pi (T' : Type SP) -> TP ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
+                               {FP : Type SP -> \Set} {FF : \Pi(dom : Type SP) -> FP dom -> subobj (IT TyF dom)}
+                               {dom dom' : Type SP} (form : Formula TP FP dom) (term : Term TP dom' dom) =>
   (IF TyF TeF FF (substF form term), pullback-of-subobj (I TyF TeF term) (IF TyF TeF FF form))
 
-\func lemma-substF {C : HeytingPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} {TyF : TP -> C}
-                   {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
-                   {FP : Type TP -> \Set} {FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
-                   {dom dom' : Type TP} (form : Formula P FP dom) (term : Term P dom' dom)
-  : bi-inclusion (IF TyF TeF FF (substF form term)) (pullback-of-subobj (I TyF TeF term) (IF TyF TeF FF form)) \elim form
+\func lemma-substF {C : HeytingPrecat}
+     {SP : \Set} {TP : Type SP -> (Type SP) -> \Set} {TyF : SP -> C}
+     {TeF : \Pi (ctx' : Type SP) -> \Pi (T' : Type SP)
+          -> TP ctx' T' -> Hom (IT TyF ctx') (IT TyF T')}
+     {FP : Type SP -> \Set}
+     {FF : \Pi(dom : Type SP) -> FP dom -> subobj (IT TyF dom)}
+     {dom dom' : Type SP} (form : Formula TP FP dom) (term : Term TP dom' dom)
+  : bi-inclusion (IF TyF TeF FF (substF form term))
+                (pullback-of-subobj (I TyF TeF term) (IF TyF TeF FF form)) \elim form
   | Conj form1 form2 =>
     \let h => I TyF TeF term
-         | ((l1, q1), (r1, s1)) => lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form1 term
-         | ((l2, q2), (r2, s2)) => lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form2 term
+         | ((l1, q1), (r1, s1)) => lemma-substF {C} {SP} {TP} {TyF} {TeF} {FP} {FF} form1 term
+         | ((l2, q2), (r2, s2)) => lemma-substF {C} {SP} {TP} {TyF} {TeF} {FP} {FF} form2 term
          | (sub1, in1, mon1) => IF TyF TeF FF form1
          | (sub2, in2, mon2) => IF TyF TeF FF form2
          | pb => C.pullback in1 in2
@@ -255,8 +266,8 @@
          | eq => (\let xx => pmap (C.pair (C.proj1 `o` id (C.Bprod (IT TyF dom'') _)) __ )
              (lemma-subst {_}{_}{_}{_}{TeF} term (Proj2 (Var idp)))\in inv xx : tpl-map = tpl-map')
          | pb-f => C.pullback in-f tpl-map
-         | (f-tpl, so-pb) => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} form term'
-         | (inc1, inc1') => lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form term'
+         | (f-tpl, so-pb) => lemma-substF-subobjects {C} {SP} {TP} {TyF} {TeF} {FP} {FF} form term'
+         | (inc1, inc1') => lemma-substF {C} {SP} {TP} {TyF} {TeF} {FP} {FF} form term'
          | img => C.image (C.proj2 `o` f-tpl.2)
          | img-pb => C.image (C.proj2 `o` so-pb.2)
          | (x1, x2) => image-lemma-subobjects (C.proj2 `o` f-tpl.2) (C.proj2 `o` so-pb.2) inc1.1 (o-assoc *> pmap (C.proj2 `o`) inc1.2)
@@ -286,7 +297,7 @@
          | If2 => IF TyF TeF FF form2
          | k => (IF TyF TeF FF (substF form1 term)).2
          | Isub2 => IF TyF TeF FF (substF form2 term)
-         | pb1 => inclusions-to-pullback-def (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form1 term)
+         | pb1 => inclusions-to-pullback-def (lemma-substF {C} {SP} {TP} {TyF} {TeF} {FP} {FF} form1 term)
     \in bi-inclusion-transitivity
         (C.r-adj k (pullback-functor k Isub2))
         (C.r-adj k (pullback-functor (Pullback.pbProj1 {pb1}) (pullback-functor If1.2 If2)))
@@ -359,124 +370,152 @@
     \func swap {A B : \Type} (x : \Sigma A B) => (x.2, x.1)
   }
 
-\data Proof {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
-            (PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set) (hyp f : Formula P FP dom)
+\data Proof {SP : \Set} {TP : Type SP -> Type SP -> \Set}
+               {dom : Type SP} {FP : Type SP -> \Set}
+               (PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set)
+               (hyp f : Formula TP FP dom)
   | idProof (hyp = f)
-  | transProof {f' : Formula P FP dom} (Proof PP hyp f') (Proof PP f' f)
-  | substProof {dom' : Type TP} {term : Term P dom dom'} {hyp' f' : Formula P FP dom'}
+  | transProof {f' : Formula TP FP dom} (Proof PP hyp f') (Proof PP f' f)
+  | substProof {dom' : Type SP} {term : Term TP dom dom'} {hyp' f' : Formula TP FP dom'}
                (hyp = substF hyp' term) (f = substF f' term) (Proof PP hyp' f')
-  | reflProof {cod : Type TP} {a : Term P dom cod} (f = Eq a a)
-  | transportProof {dom' : Type TP} {a a' : Term P dom dom'} {f' : Formula P FP (Prod dom' dom)}
-                   (f = substF f' (Tuple idp a' (Var idp))) (Proof PP hyp (Eq a a')) (Proof PP hyp (substF f'  (Tuple idp a (Var idp))))
-  | concatProof {cod : Type TP} (a b c : Term P dom cod) (f = Eq a c) (Proof PP hyp (Eq a b)) (Proof PP hyp (Eq b c))
-  | pmapProof {mid cod : Type TP} {a b : Term P dom mid} (h : Term P (Prod mid dom) cod)
-              (f = Eq (subst h (Tuple idp a (Var idp))) (subst h (Tuple idp b (Var idp)))) (Proof PP hyp (Eq a b))
-  | invProof {cod : Type TP} {a b : Term P dom cod} (f = Eq a b) (Proof PP hyp (Eq b a))
-  | proj1Proof {f2 : Formula P FP dom} (hyp = Conj f f2)
-  | proj2Proof {f1 : Formula P FP dom} (hyp = Conj f1 f)
-  | tupleProof {f1 f2 : Formula P FP dom} (f = Conj f1 f2) (Proof PP hyp f1) (Proof PP hyp f2)
+
   | paramProof (PP dom hyp f)
+
+  | reflProof {cod : Type SP} {a : Term TP dom cod} (f = Eq a a)
+  | invProof {cod : Type SP} {a b : Term TP dom cod} (f = Eq a b) (Proof PP hyp (Eq b a))
+  | concatProof {cod : Type SP} (a b c : Term TP dom cod) (f = Eq a c)
+               (Proof PP hyp (Eq a b)) (Proof PP hyp (Eq b c))
+  | transportProof {dom' : Type SP} {a a' : Term TP dom dom'} {f' : Formula TP FP (Prod dom' dom)}
+               (f = substF f' (Tuple idp a' (Var idp))) (Proof PP hyp (Eq a a'))
+               (Proof PP hyp (substF f'  (Tuple idp a (Var idp))))
+  | pmapProof {mid cod : Type SP} {a b : Term TP dom mid} (h : Term TP (Prod mid dom) cod)
+               (f = Eq (subst h (Tuple idp a (Var idp))) (subst h (Tuple idp b (Var idp))))
+               (Proof PP hyp (Eq a b))
+
+  | proj1Proof {f2 : Formula TP FP dom} (hyp = Conj f f2)
+  | proj2Proof {f1 : Formula TP FP dom} (hyp = Conj f1 f)
+  | tupleProof {f1 f2 : Formula TP FP dom} (f = Conj f1 f2) (Proof PP hyp f1) (Proof PP hyp f2)
+
   | trueProof (f = FTrue)
-  | existsProof1 {dom' dom'' : Type TP} {f' : Formula P FP dom''} (p : dom = Prod dom' dom'')
-                 (f = rewrite p (substF f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (q : Proof PP (FExists (rewriteI p hyp)) f')
-  | existsProof2 {dom' : Type TP} {hyp' : Formula P FP (Prod dom' dom)} (hyp = FExists hyp') (Proof PP hyp' (substF f (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
-  | existsProofSubst {dom' : Type TP} {t : Term P dom dom'} {f' : Formula P FP (Prod dom' dom)} (hyp = substF f' (Tuple idp t (Var idp))) (f = FExists f')
-  | disjLeft {f' : Formula P FP dom} (f = Disj hyp f')
-  | disjRight {f' : Formula P FP dom} (f = Disj f' hyp)
-  | disjHyp {hyp' hyp'' : Formula P FP dom} (hyp = Disj hyp' hyp'') (Proof PP hyp' f) (Proof PP hyp'' f)
+
+  | existsProof1 {dom' dom'' : Type SP} {f' : Formula TP FP dom''} (p : dom = Prod dom' dom'')
+                 (f = rewrite p (substF f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
+                 (q : Proof PP (FExists (rewriteI p hyp)) f')
+  | existsProof2 {dom' : Type SP} {hyp' : Formula TP FP (Prod dom' dom)} (hyp = FExists hyp')
+                 (Proof PP hyp' (substF f (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
+  | existsProofExtra {dom' : Type SP} {f' : Formula TP FP (Prod dom' dom)} {h : Formula TP FP dom}
+                     (hyp = Conj (FExists f') h)
+                     (f = FExists (Conj f' (substF h (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))))
+  | existsProofSubst {dom' : Type SP} {t : Term TP dom dom'} {f' : Formula TP FP (Prod dom' dom)}
+                     (hyp = substF f' (Tuple idp t (Var idp))) (f = FExists f')
+
+  | disjLeft {f' : Formula TP FP dom} (f = Disj hyp f')
+  | disjRight {f' : Formula TP FP dom} (f = Disj f' hyp)
+  | disjHyp {hyp' hyp'' : Formula TP FP dom} (hyp = Disj hyp' hyp'') (Proof PP hyp' f) (Proof PP hyp'' f)
+  | deMorganExtra {f1 f2 f3 : Formula TP FP dom}
+                  (hyp = Conj (Disj f1 f2) f3) (f = Disj (Conj f1 f3) (Conj f2 f3))
+
   | absurdProof (hyp = FFalse)
-  | forallProof1 {dom' dom'' : Type TP} {hyp' : Formula P FP dom''} (p : dom = Prod dom' dom'')
-                 (hyp = rewrite p (substF hyp' (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (q : Proof PP hyp' (Forall (rewriteI p f)))
-  | forallProof2 {dom' : Type TP} {f' : Formula P FP (Prod dom' dom)} (f = Forall f') (Proof PP (substF hyp (Proj2 {_}{_}{_}{_}{dom'} (Var idp))) f')
-  | forallProofSubst {dom' : Type TP} {t : Term P dom dom'} {f' : Formula P FP (Prod dom' dom)} (f = substF f' (Tuple idp t (Var idp))) (hyp = Forall f')
-  | abstractionProof {phi psi : Formula P FP dom} (f = Impl phi psi) (Proof PP (Conj hyp phi) psi)
-  | applicationProof {phi : Formula P FP dom} (Proof PP hyp phi) (Proof PP hyp (Impl phi f))
 
-\func absurdProof' {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
-                  {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                  {hyp : Formula P FP dom} (f : Formula P FP dom) (p : Proof PP hyp FFalse) : Proof PP hyp f => transProof p (absurdProof idp)
+  | forallProof1 {dom' dom'' : Type SP} {hyp' : Formula TP FP dom''} (p : dom = Prod dom' dom'')
+                 (hyp = rewrite p (substF hyp' (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
+                 (q : Proof PP hyp' (Forall (rewriteI p f)))
+  | forallProof2 {dom' : Type SP} {f' : Formula TP FP (Prod dom' dom)} (f = Forall f')
+                 (Proof PP (substF hyp (Proj2 {_}{_}{_}{_}{dom'} (Var idp))) f')
+  | forallProofSubst {dom' : Type SP} {t : Term TP dom dom'} {f' : Formula TP FP (Prod dom' dom)}
+                     (f = substF f' (Tuple idp t (Var idp))) (hyp = Forall f')
 
+  | abstractionProof {phi psi : Formula TP FP dom} (f = Impl phi psi) (Proof PP (Conj hyp phi) psi)
+  | applicationProof {phi : Formula TP FP dom} (Proof PP hyp phi) (Proof PP hyp (Impl phi f))
 
-\func proj1Proof' {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
-      {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                  {hyp f f' : Formula P FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f => transProof p (proj1Proof idp)
-
-\func proj2Proof' {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
-                  {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                  {hyp f f' : Formula P FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f' => transProof p (proj2Proof idp)
+\func absurdProof' {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
+                  {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                  {hyp : Formula TP FP dom} (f : Formula TP FP dom) (p : Proof PP hyp FFalse) : Proof PP hyp f => transProof p (absurdProof idp)
 
 
-\func proofParam {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom0 dom : Type TP} {FP : Type TP -> \Set}
-                {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set} {hyp0 : Formula P FP dom0}
-                 (hyp f : Formula P FP dom)
-  (n : PP dom hyp f) (t : Term P dom0 dom) (p : Proof PP hyp0 (substF hyp t)) : Proof PP hyp0 (substF f t)
+\func proj1Proof' {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
+      {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                  {hyp f f' : Formula TP FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f => transProof p (proj1Proof idp)
+
+\func proj2Proof' {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
+                  {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                  {hyp f f' : Formula TP FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f' => transProof p (proj2Proof idp)
+
+
+\func proofParam {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom0 dom : Type SP} {FP : Type SP -> \Set}
+                {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set} {hyp0 : Formula TP FP dom0}
+                 (hyp f : Formula TP FP dom)
+  (n : PP dom hyp f) (t : Term TP dom0 dom) (p : Proof PP hyp0 (substF hyp t)) : Proof PP hyp0 (substF f t)
   => transProof p (substProof idp idp (paramProof n))
 
-\func conjSymLemma {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
-                   {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                   (f g : Formula P FP dom) : Proof PP (Conj f g) (Conj g f) =>
+\func conjSymLemma {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
+                   {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                   (f g : Formula TP FP dom) : Proof PP (Conj f g) (Conj g f) =>
   tupleProof idp (proj2Proof idp) (proj1Proof idp)
 
-\func abstractionProof2 {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom : Type TP} {FP : Type TP -> \Set}
-                        {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                        {ctx hyp f : Formula P FP dom} (p : Proof PP (Conj hyp ctx) f) : Proof PP ctx (Impl hyp f) =>
+\func abstractionProof2 {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
+                        {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                        {ctx hyp f : Formula TP FP dom} (p : Proof PP (Conj hyp ctx) f) : Proof PP ctx (Impl hyp f) =>
   (abstractionProof idp (transProof (conjSymLemma ctx hyp) p))
 
-\func existsLemma {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom dom' : Type TP} {FP : Type TP -> \Set}
-                  {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                  (f : Formula P FP (Prod dom' dom)) (g : Formula P FP dom)
-  : Proof PP (Conj (FExists f) g) (FExists (Conj f (substF g (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))) => {?}
+\func existsLemma {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom dom' : Type SP} {FP : Type SP -> \Set}
+                  {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                  (f : Formula TP FP (Prod dom' dom)) (g : Formula TP FP dom)
+  : Proof PP (Conj (FExists f) g) (FExists (Conj f (substF g (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))) => existsProofExtra idp idp
 
-\func recExistsProof {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom dom' : Type TP} {FP : Type TP -> \Set}
-                     {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set} {hyp : Formula P FP dom}
-                     (f : Formula P FP dom)
-                     (f' : Formula P FP (Prod dom' dom))
+\func recExistsProof {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom dom' : Type SP} {FP : Type SP -> \Set}
+                     {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set} {hyp : Formula TP FP dom}
+                     (f : Formula TP FP dom)
+                     (f' : Formula TP FP (Prod dom' dom))
                      (ep : Proof PP hyp (FExists f'))
                      (p : Proof PP (Conj f' (substF hyp (Proj2 {_}{_}{_}{_}{dom'} (Var idp)))) (substF f (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))
   : Proof PP hyp f => transProof (transProof (tupleProof idp ep (idProof idp)) (existsLemma f' hyp))
     (existsProof2 idp p)
 
-\func existsConsProof {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom dom' : Type TP} {FP : Type TP -> \Set}
-                      {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set} {hyp : Formula P FP dom}
-                      (f' : Formula P FP (Prod dom' dom)) (t : Term P dom dom')
+\func existsConsProof {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom dom' : Type SP} {FP : Type SP -> \Set}
+                      {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set} {hyp : Formula TP FP dom}
+                      (f' : Formula TP FP (Prod dom' dom)) (t : Term TP dom dom')
                       (p : Proof PP hyp (substF f' (Tuple idp t (Var idp)))) : Proof PP hyp (FExists f') =>
   transProof p (existsProofSubst idp idp)
 
-\func applForallProof {TP : \Set} {P : Type TP -> Type TP -> \Set} {dom dom' : Type TP} {FP : Type TP -> \Set}
-                      {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                      {hyp : Formula P FP dom} {f : Formula P FP (Prod dom' dom)}
-                      (p : Proof PP hyp (Forall f)) (t : Term P dom dom')
+
+\func applForallProof {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom dom' : Type SP} {FP : Type SP -> \Set}
+                      {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                      {hyp : Formula TP FP dom} {f : Formula TP FP (Prod dom' dom)}
+                      (p : Proof PP hyp (Forall f)) (t : Term TP dom dom')
   : Proof PP hyp (substF f (Tuple idp t (Var idp))) =>
   transProof p (forallProofSubst idp idp)
 
-\func inlProof {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set}
-               {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-               {dom : Type TP} {hyp f : Formula P FP dom} (f' : Formula P FP dom) (p : Proof PP hyp f) : Proof PP hyp (Disj f f') =>
+\func inlProof {SP : \Set} {TP : Type SP -> Type SP -> \Set} {FP : Type SP -> \Set}
+               {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+               {dom : Type SP} {hyp f : Formula TP FP dom} (f' : Formula TP FP dom) (p : Proof PP hyp f) : Proof PP hyp (Disj f f') =>
   transProof p (disjLeft idp)
 
-\func inrProof {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set}
-               {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-               {dom : Type TP} {hyp f' : Formula P FP dom} (f : Formula P FP dom) (p : Proof PP hyp f') : Proof PP hyp (Disj f f') =>
+\func inrProof {SP : \Set} {TP : Type SP -> Type SP -> \Set} {FP : Type SP -> \Set}
+               {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+               {dom : Type SP} {hyp f' : Formula TP FP dom} (f : Formula TP FP dom) (p : Proof PP hyp f') : Proof PP hyp (Disj f f') =>
   transProof p (disjRight idp)
 
-\func deMorganLemma {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set}
-                    {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                    {dom : Type TP} {hyp0 hyp hyp' : Formula P FP dom}
-  : Proof PP (Conj (Disj hyp hyp') hyp0) (Disj (Conj hyp hyp0) (Conj hyp' hyp0)) => {?}
+\func deMorganLemma {SP : \Set} {TP : Type SP -> Type SP -> \Set} {FP : Type SP -> \Set}
+                    {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                    {dom : Type SP} {hyp0 hyp hyp' : Formula TP FP dom}
+  : Proof PP (Conj (Disj hyp hyp') hyp0) (Disj (Conj hyp hyp0) (Conj hyp' hyp0)) => deMorganExtra idp idp
 
-\func recDisjProof {TP : \Set} {P : Type TP -> Type TP -> \Set} {FP : Type TP -> \Set}
-                   {PP : \Pi(dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                   {dom : Type TP} {hyp0 hyp hyp' f : Formula P FP dom}
+\func recDisjProof {SP : \Set} {TP : Type SP -> Type SP -> \Set} {FP : Type SP -> \Set}
+                   {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                   {dom : Type SP} {hyp0 hyp hyp' f : Formula TP FP dom}
                    (p0 : Proof PP hyp0 (Disj hyp hyp')) (p : Proof PP (Conj hyp hyp0) f) (p' : Proof PP (Conj hyp' hyp0) f)
   : Proof PP hyp0 f => transProof (transProof (tupleProof idp p0 (idProof idp)) (deMorganLemma)) (disjHyp idp p p')
 
 \func IP
-  {C : HeytingPrecat} {TP : \Set} {P : Type TP -> (Type TP) -> \Set} (TyF : TP -> C)
-  (TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
-  {FP : Type TP -> \Set} (FF : \Pi(dom : Type TP) -> FP dom -> subobj (IT TyF dom))
-  {dom : Type TP} {PP : \Pi(dom : Type TP) -> Formula P FP dom ->  Formula P FP dom -> \Set}
-  (PF : \Pi(dom : Type TP) -> \Pi(hyp form : Formula P FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form))
-  {hyp form : Formula P FP dom} (proof : Proof PP hyp form) : subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form) \elim proof
+  {C : HeytingPrecat} {SP : \Set} {TP : Type SP -> (Type SP) -> \Set} (TyF : SP -> C)
+  (TeF : \Pi (ctx' : Type SP) -> \Pi (T' : Type SP) -> TP ctx' T' -> Hom (IT TyF ctx') (IT TyF T'))
+  {FP : Type SP -> \Set} (FF : \Pi(dom : Type SP) -> FP dom -> subobj (IT TyF dom))
+  {dom : Type SP} {PP : \Pi(dom : Type SP) -> Formula TP FP dom ->  Formula TP FP dom -> \Set}
+  (PF : \Pi(dom : Type SP) -> \Pi(hyp form : Formula TP FP dom) -> PP dom hyp form
+          -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form))
+  {hyp form : Formula TP FP dom} (proof : Proof PP hyp form)
+  : subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form) \elim proof
   | idProof p => rewrite p (id _, id-right)
   | transProof proof1 proof2 =>
     subobj-inclusion-transitivity _ _ _ (IP TyF TeF FF PF proof1) (IP TyF TeF FF PF proof2)
@@ -487,17 +526,17 @@
          | pb2 => C.pullback (IF TyF TeF FF form').2 h
          | x => Pullback.pbMap {pb2} (in `o` Pullback.pbProj1 {pb1}) (Pullback.pbProj2 {pb1}) (inv o-assoc *> rewrite p (Pullback.pbCoh {pb1}))
          | p1 => (Pullback.pbBeta2 {pb2}) {pb1} {in `o` Pullback.pbProj1 {pb1}} {Pullback.pbProj2 {pb1}} {inv o-assoc *> rewrite p (Pullback.pbCoh {pb1})}
-         | (a, a') => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} hyp' term
-         | (b, b') => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} form' term
-         | in' => subobj-inclusion-transitivity a a' b' (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} hyp' term).1 (x, p1)
-         | in'' => subobj-inclusion-transitivity a b' b in' (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} form' term).2
+         | (a, a') => lemma-substF-subobjects {C} {SP} {TP} {TyF} {TeF} {FP} {FF} hyp' term
+         | (b, b') => lemma-substF-subobjects {C} {SP} {TP} {TyF} {TeF} {FP} {FF} form' term
+         | in' => subobj-inclusion-transitivity a a' b' (lemma-substF {C} {SP} {TP} {TyF} {TeF} {FP} {FF} hyp' term).1 (x, p1)
+         | in'' => subobj-inclusion-transitivity a b' b in' (lemma-substF {C} {SP} {TP} {TyF} {TeF} {FP} {FF} form' term).2
     \in in'')
   | reflProof {cod} {a} p => rewrite p (inclusion-to-equalizer-lemma' idp)
   | transportProof {dom'} {a} {a'} {f'} p eqProof proof => rewrite p (
     \let si1 => IP TyF TeF FF PF proof
          | Ia=Ia' => pmap (C.pair __ (id _ `o` (IF TyF TeF FF hyp).2)) (inclusion-to-equalizer-lemma (IP TyF TeF FF PF eqProof))
-         | pb-a => inclusions-to-pullback-def (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp a (Var idp)))
-         | pb-a' => inclusions-to-pullback-def (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp a' (Var idp)))
+         | pb-a => inclusions-to-pullback-def (lemma-substF {C} {SP} {TP} {TyF} {TeF} {FP} {FF} f' (Tuple idp a (Var idp)))
+         | pb-a' => inclusions-to-pullback-def (lemma-substF {C} {SP} {TP} {TyF} {TeF} {FP} {FF} f' (Tuple idp a' (Var idp)))
     \in (Pullback.pbMap {pb-a'} ((Pullback.pbProj1 {pb-a}) `o` si1.1) (IF TyF TeF FF hyp).2 (inv o-assoc
       *> rewrite (C.pair-comp, inv Ia=Ia', inv C.pair-comp, inv si1.2) (pmap (`o` si1.1) (Pullback.pbCoh {pb-a}) *> o-assoc)), Pullback.pbBeta2))
   | concatProof {cod} a b c p proof1 proof2 => rewrite p (
@@ -525,9 +564,9 @@
          q *> p2))
   | paramProof p => PF dom hyp form p
   | trueProof p => rewrite p ((IF TyF TeF FF hyp).2, id-left)
-  | existsProof1 {dom'} {dom''} {f'} p p1 proof => rewrite p1 (exists-lem1 {C}{TP}{P}{TyF}{TeF}{FP}{FF}{dom}{PP}{PF}{dom'}{dom''}{form}{hyp}{p}{f'}{p1}{proof})
+  | existsProof1 {dom'} {dom''} {f'} p p1 proof => rewrite p1 (exists-lem1 {C}{SP}{TP}{TyF}{TeF}{FP}{FF}{dom}{PP}{PF}{dom'}{dom''}{form}{hyp}{p}{f'}{p1}{proof})
   | existsProof2 {dom'} {hyp'} p proof => rewrite p (
-    \let (in1, in2) => lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} form (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
+    \let (in1, in2) => lemma-substF {C}{SP}{TP}{TyF}{TeF}{FP}{FF} form (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
          | in3 => IP TyF TeF FF PF proof
          | Iproj2 => I TyF TeF (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
          | If => IF TyF TeF FF form
@@ -539,8 +578,8 @@
     \in x)
   | existsProofSubst {dom'} {t} {f'} p p1 => rewrite (p, p1) (
     \let
-      | (in1, in2) => lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' (Tuple idp t (Var idp))
-      | (x1, x2) => lemma-substF-subobjects {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' (Tuple idp t (Var idp))
+      | (in1, in2) => lemma-substF {C}{SP}{TP}{TyF}{TeF}{FP}{FF} f' (Tuple idp t (Var idp))
+      | (x1, x2) => lemma-substF-subobjects {C}{SP}{TP}{TyF}{TeF}{FP}{FF} f' (Tuple idp t (Var idp))
       | If' => IF TyF TeF FF f'
       | Itpl => I TyF TeF (Tuple idp t (Var idp))
       | pb => C.pullback If'.2 Itpl
@@ -551,7 +590,7 @@
   | disjRight p => rewrite p (Bcoprod.inr {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _})
   | disjHyp p proof1 proof2 => rewrite p (Bcoprod.map {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _} (IP TyF TeF FF PF proof1) (IP TyF TeF FF PF proof2))
   | absurdProof p => rewrite p (Initial.map {PrecatWithFiniteCoproducts.initial {C.subobj-cat-with-coproducts _}})
-  | forallProof1 {dom'} {dom''} {hyp'} p p1 proof => rewrite p1 (forall-lem1 {C}{TP}{P}{TyF}{TeF}{FP}{FF}{dom}{PP}{PF}{dom'}{dom''} form hyp p hyp' proof)
+  | forallProof1 {dom'} {dom''} {hyp'} p p1 proof => rewrite p1 (forall-lem1 {C}{SP}{TP}{TyF}{TeF}{FP}{FF}{dom}{PP}{PF}{dom'}{dom''} form hyp p hyp' proof)
   | forallProof2 p proof => rewrite p (RightAdjoint.isAdjoint {C.r-adj C.proj2} (subobj-inclusion-transitivity
       (pullback-of-subobj C.proj2 (IF TyF TeF FF hyp)) _ _
       (rewriteI id-right (lemma-substF hyp (Proj2 (Var idp))).2) (IP TyF TeF FF PF proof)))
@@ -561,7 +600,7 @@
          | If => IF TyF TeF FF f'
          | radj-f => C.r-adj C.proj2 If
          | pb-radj-f => pullback radj-f.2 (C.proj2 : Hom (C.Bprod (IT TyF dom') (IT TyF dom)) (IT TyF dom)) \in (
-      (Pullback.pbMap {inclusions-to-pullback-def (lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' tpl)})
+      (Pullback.pbMap {inclusions-to-pullback-def (lemma-substF {C}{SP}{TP}{TyF}{TeF}{FP}{FF} f' tpl)})
           (((Equiv.sec {RightAdjoint.isAdjoint {C.r-adj C.proj2}}) (id _, id-right)).1
             `o` (Pullback.pbMap {pb-radj-f}) (id _) (Itpl `o` radj-f.2) (id-right *> unfold (rewrite (C.beta2, id-left) idp) *> o-assoc))
           radj-f.2 (inv o-assoc *> rewrite ((Equiv.sec {RightAdjoint.isAdjoint {C.r-adj C.proj2}}) (id _, id-right)).2
@@ -577,6 +616,8 @@
          | inc => Equiv.sec {RightAdjoint.isAdjoint {C.r-adj Iphi.2}} Ipr2 | pb1 => pullback Ipsi.2 Iphi.2 | pb2 => pullback Ihyp.2 Iphi.2 | xxx => inc.2 \in
       (Pullback.pbProj1 {pb1} `o` inc.1 `o` Pullback.pbMap (id _) Ipr1.1 (id-right *> inv Ipr1.2),
        inv o-assoc *> rewriteI (o-assoc, inv (Pullback.pbCoh {pb1})) (rewriteEq (inc.2, Pullback.pbBeta2 {pb2}) Ipr1.2))
+  | existsProofExtra p p1 => {?}
+  | deMorganExtra p p1 => {?}
 
   \where {
     \func inclusion-to-equalizer-lemma {C : FinCompletePrecat} {x y : C} {f g : Hom x y} {so : subobj x}
@@ -588,17 +629,17 @@
       : subobj-inclusion so (C.equalizer f g, Equalizer.eql {C.equalizer f g}, \new Mono (Equalizer.eql {C.equalizer f g}) (Equalizer.eqMono {C.equalizer f g})) =>
       \let e => C.equalizer f g \in (Equalizer.eqMap {e} so.2 p, Equalizer.eqBeta {e} so.2 p)
 
-    \func exists-lem1 {C : HeytingPrecat} {TP : \Set} {P : Type TP -> Type TP -> \Set}
-                      {TyF : TP -> C} {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> C.Hom (IT TyF ctx') (IT TyF T')}
-                      {FP : Type TP -> \Set} {FF : \Pi (dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
-                      {dom : Type TP} {PP : \Pi (dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                      {PF : \Pi (dom : Type TP) -> \Pi (hyp form : Formula P FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form)}
-                      {dom' : Type TP} {dom'' : Type TP} {form : Formula P FP dom} {hyp : Formula P FP dom} {p : dom = Prod dom' dom''}
-                      {f' : Formula P FP dom''} {p1 : form = transportInv (Formula P FP) p (substF f' (Proj2 (Var idp)))}
-                      {proof : Proof PP (FExists (transport (Formula P FP) p hyp)) f'}
-      : subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF (transportInv (Formula P FP) p (substF f' (Proj2 (Var idp))))) \elim p
+    \func exists-lem1 {C : HeytingPrecat} {SP : \Set} {TP : Type SP -> Type SP -> \Set}
+                      {TyF : SP -> C} {TeF : \Pi (ctx' : Type SP) -> \Pi (T' : Type SP) -> TP ctx' T' -> C.Hom (IT TyF ctx') (IT TyF T')}
+                      {FP : Type SP -> \Set} {FF : \Pi (dom : Type SP) -> FP dom -> subobj (IT TyF dom)}
+                      {dom : Type SP} {PP : \Pi (dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                      {PF : \Pi (dom : Type SP) -> \Pi (hyp form : Formula TP FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form)}
+                      {dom' : Type SP} {dom'' : Type SP} {form : Formula TP FP dom} {hyp : Formula TP FP dom} {p : dom = Prod dom' dom''}
+                      {f' : Formula TP FP dom''} {p1 : form = transportInv (Formula TP FP) p (substF f' (Proj2 (Var idp)))}
+                      {proof : Proof PP (FExists (transport (Formula TP FP) p hyp)) f'}
+      : subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF (transportInv (Formula TP FP) p (substF f' (Proj2 (Var idp))))) \elim p
       | idp =>
-        \let (in1, in2) => lemma-substF {C}{TP}{P}{TyF}{TeF}{FP}{FF} f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
+        \let (in1, in2) => lemma-substF {C}{SP}{TP}{TyF}{TeF}{FP}{FF} f' (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
              | in3 => IP TyF TeF FF PF proof
              | Iproj2 => I TyF TeF (Proj2 {_}{_}{_}{_}{dom'} (Var idp))
              | If' => IF TyF TeF FF f'
@@ -607,14 +648,14 @@
              | x => Pullback.pbMap {pb} (in3.1 `o` Image.im2 {img}) (IF TyF TeF FF hyp).2 (rewrite id-right (inv o-assoc *> rewrite in3.2 idp *> Image.im-comm {img}))
         \in subobj-inclusion-transitivity _ (pullback-of-subobj Iproj2 If') _ (x, Pullback.pbBeta2) in2
 
-    \func forall-lem1 {C : HeytingPrecat} {TP : \Set} {P : Type TP -> Type TP -> \Set}
-                      {TyF : TP -> C} {TeF : \Pi (ctx' : Type TP) -> \Pi (T' : Type TP) -> P ctx' T' -> C.Hom (IT TyF ctx') (IT TyF T')}
-                      {FP : Type TP -> \Set} {FF : \Pi (dom : Type TP) -> FP dom -> subobj (IT TyF dom)}
-                      {dom : Type TP} {PP : \Pi (dom : Type TP) -> Formula P FP dom -> Formula P FP dom -> \Set}
-                      {PF : \Pi (dom : Type TP) -> \Pi (hyp form : Formula P FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form)}
-                      {dom' : Type TP} {dom'' : Type TP} (form : Formula P FP dom) (hyp : Formula P FP dom) (p : dom = Prod dom' dom'')
-                      (hyp' : Formula P FP dom'') (proof : Proof PP hyp' (Forall (transport (Formula P FP) p form)))
-      : subobj-inclusion (IF TyF TeF FF (transportInv (Formula P FP) p (substF hyp' (Proj2 (Var idp))))) (IF TyF TeF FF form) \elim p
+    \func forall-lem1 {C : HeytingPrecat} {SP : \Set} {TP : Type SP -> Type SP -> \Set}
+                      {TyF : SP -> C} {TeF : \Pi (ctx' : Type SP) -> \Pi (T' : Type SP) -> TP ctx' T' -> C.Hom (IT TyF ctx') (IT TyF T')}
+                      {FP : Type SP -> \Set} {FF : \Pi (dom : Type SP) -> FP dom -> subobj (IT TyF dom)}
+                      {dom : Type SP} {PP : \Pi (dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
+                      {PF : \Pi (dom : Type SP) -> \Pi (hyp form : Formula TP FP dom) -> PP dom hyp form -> subobj-inclusion (IF TyF TeF FF hyp) (IF TyF TeF FF form)}
+                      {dom' : Type SP} {dom'' : Type SP} (form : Formula TP FP dom) (hyp : Formula TP FP dom) (p : dom = Prod dom' dom'')
+                      (hyp' : Formula TP FP dom'') (proof : Proof PP hyp' (Forall (transport (Formula TP FP) p form)))
+      : subobj-inclusion (IF TyF TeF FF (transportInv (Formula TP FP) p (substF hyp' (Proj2 (Var idp))))) (IF TyF TeF FF form) \elim p
       | idp => subobj-inclusion-transitivity
           (IF TyF TeF FF (substF hyp' (Proj2 (Var idp)))) (pullback-of-subobj (I TyF TeF (Proj2 (Var idp))) (IF TyF TeF FF hyp')) (IF TyF TeF FF form)
           (lemma-substF hyp' (Proj2 (Var idp))).1
