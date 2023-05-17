@@ -4,6 +4,7 @@ import org.arend.ext.concrete.ConcreteFactory;
 import org.arend.ext.concrete.ConcreteParameter;
 import org.arend.ext.concrete.ConcreteSourceNode;
 import org.arend.ext.concrete.expr.ConcreteArgument;
+import org.arend.ext.concrete.expr.ConcreteExpression;
 import org.arend.ext.core.context.CoreBinding;
 import org.arend.ext.core.context.CoreParameter;
 import org.arend.ext.core.definition.CoreDataDefinition;
@@ -15,6 +16,7 @@ import org.arend.ext.error.ErrorReporter;
 import org.arend.ext.error.TypecheckingError;
 import org.arend.ext.reference.ArendRef;
 import org.arend.ext.typechecking.ExpressionTypechecker;
+import org.arend.ext.util.Pair;
 import org.arend.lib.StdExtension;
 import org.arend.lib.meta.util.SubstitutionMeta;
 import org.arend.lib.util.Values;
@@ -30,7 +32,7 @@ public class Canonizer {
     ErrorReporter errorReporter;
 
     Values<CoreReferenceExpression> oldRefs;
-    List<ArendRef> newRefs = new ArrayList<>();
+    List<ConcreteExpression> newRefs = new ArrayList<>();
 
     public void init(ConcreteFactory fac, StdExtension ext, ExpressionTypechecker typechecker, ConcreteSourceNode marker) {
         this.fac = fac;
@@ -123,7 +125,7 @@ public class Canonizer {
                 oldRefs.getValues().stream().map(CoreReferenceExpression::getBinding).collect(Collectors.toList()), fac, null);
         var formB = fac.appBuilder(substLam);
         for (var x : newRefs) {
-            formB = formB.app(fac.arg(fac.ref(x), true));
+            formB = formB.app(fac.arg(x, true));
         }
         var form = formB.build();
         var param = fac.param(List.of(ref), form);
@@ -131,7 +133,7 @@ public class Canonizer {
 
         if (oldRefs.getIndex(parameter.getBinding().makeReference()) == -1) {
             oldRefs.addValue(parameter.getBinding().makeReference());
-            newRefs.add(ref);
+            newRefs.add(fac.ref(ref));
         }
         return new HandledParameter(param, arg);
     }
@@ -140,7 +142,7 @@ public class Canonizer {
         var ref = fac.local(parameter.getBinding().getName());
         if (oldRefs.getIndex(parameter.getBinding().makeReference()) == -1) {
             oldRefs.addValue(parameter.getBinding().makeReference());
-            newRefs.add(ref);
+            newRefs.add(fac.ref(ref));
         }
         var param = fac.param(List.of(ref), fac.core(parameter.getTypedType()));
         var arg = fac.arg(fac.ref(ref), true);
@@ -156,7 +158,7 @@ public class Canonizer {
             var typeRef = newRefs.get(oldRefs.getIndex(type));
             param = fac.param(List.of(ref),
                     fac.pi(List.of(fac.param(true, List.of(fac.local("_")), fac.sigma())),
-                            fac.ref(typeRef)));
+                            typeRef));
             arg = fac.arg(fac.app(fac.core(ev_unit_lam.computeTyped()), fac.arg(fac.ref(ref), true)), true);
         } else if (type instanceof CorePiExpression typePi) {
             var cod = typePi.getCodomain();
@@ -164,25 +166,25 @@ public class Canonizer {
                 var codTypeRef = newRefs.get(oldRefs.getIndex(cod));
                 var domTypeRef = newRefs.get(oldRefs.getIndex(typePi.getParameters().getTypeExpr()));
                 param = fac.param(List.of(ref),
-                        fac.pi(List.of(fac.param(true, List.of(fac.local("_")), fac.ref(domTypeRef))),
-                                fac.ref(codTypeRef)));
+                        fac.pi(List.of(fac.param(true, List.of(fac.local("_")), domTypeRef)),
+                                codTypeRef));
                 arg = fac.arg(fac.ref(ref), true);
             } else if (cod instanceof CorePiExpression codPi) {
                 List<ConcreteParameter> sigmaParameters = new ArrayList<>();
                 var domTypeRef1 = newRefs.get(oldRefs.getIndex(typePi.getParameters().getTypeExpr()));
-                sigmaParameters.add(fac.param(List.of(fac.local("_")), fac.ref(domTypeRef1)));
+                sigmaParameters.add(fac.param(List.of(fac.local("_")), domTypeRef1));
                 var domTypeRef2 = newRefs.get(oldRefs.getIndex(codPi.getParameters().getTypeExpr()));
-                sigmaParameters.add(fac.param(List.of(fac.local("_")), fac.ref(domTypeRef2)));
+                sigmaParameters.add(fac.param(List.of(fac.local("_")), domTypeRef2));
                 while (codPi.getCodomain() instanceof CorePiExpression codCodPi) {
                     codPi = codCodPi;
                     var domTypeRefn = newRefs.get(oldRefs.getIndex(codPi.getParameters().getTypeExpr()));
-                    sigmaParameters.add(fac.param(List.of(fac.local("_")), fac.ref(domTypeRefn)));
+                    sigmaParameters.add(fac.param(List.of(fac.local("_")), domTypeRefn));
                 }
                 if (codPi.getCodomain() instanceof CoreReferenceExpression codRef) {
                     var codTypeRef = newRefs.get(oldRefs.getIndex(codRef));
                     param = fac.param(List.of(ref), fac.pi(List.of(
                                     fac.param(true, List.of(fac.local("_")), fac.sigma(sigmaParameters))),
-                            fac.ref(codTypeRef)));
+                            codTypeRef));
                     var carrys = List.of(carry2_lam, carry3_lam, carry4_lam, carry5_lam, carry6_lam);
                     if (sigmaParameters.size() - 2 >= carrys.size()) {
                         errorReporter.report(new TypecheckingError("Maximum number of arguments in functional symbol = " + (carrys.size() + 1), marker));
@@ -212,19 +214,19 @@ public class Canonizer {
             if (cod instanceof CoreUniverseExpression) {
                 var domTypeRef = newRefs.get(oldRefs.getIndex(typePi.getParameters().getTypeExpr()));
                 param = fac.param(List.of(ref),
-                        fac.pi(List.of(fac.param(true, List.of(fac.local("_")), fac.ref(domTypeRef))),
+                        fac.pi(List.of(fac.param(true, List.of(fac.local("_")), domTypeRef)),
                                 fac.core(cod.computeTyped())));
                 arg = fac.arg(fac.ref(ref), true);
             } else if (cod instanceof CorePiExpression codPi) {
                 List<ConcreteParameter> sigmaParameters = new ArrayList<>();
                 var domTypeRef1 = newRefs.get(oldRefs.getIndex(typePi.getParameters().getTypeExpr()));
-                sigmaParameters.add(fac.param(List.of(fac.local("_")), fac.ref(domTypeRef1)));
+                sigmaParameters.add(fac.param(List.of(fac.local("_")), domTypeRef1));
                 var domTypeRef2 = newRefs.get(oldRefs.getIndex(codPi.getParameters().getTypeExpr()));
-                sigmaParameters.add(fac.param(List.of(fac.local("_")), fac.ref(domTypeRef2)));
+                sigmaParameters.add(fac.param(List.of(fac.local("_")), domTypeRef2));
                 while (codPi.getCodomain() instanceof CorePiExpression codCodPi) {
                     codPi = codCodPi;
                     var domTypeRefn = newRefs.get(oldRefs.getIndex(codPi.getParameters().getTypeExpr()));
-                    sigmaParameters.add(fac.param(List.of(fac.local("_")), fac.ref(domTypeRefn)));
+                    sigmaParameters.add(fac.param(List.of(fac.local("_")), domTypeRefn));
                 }
                 if (codPi.getCodomain() instanceof CoreUniverseExpression) {
                     param = fac.param(List.of(ref), fac.pi(List.of(
@@ -241,6 +243,148 @@ public class Canonizer {
 
         return new HandledParameter(param, arg);
     }
+
+    private boolean exprIsType(CoreExpression expr) {
+        if (expr instanceof CoreSigmaExpression) {
+            var link = ((CoreSigmaExpression) expr).getParameters();
+            try {
+                link.getBinding().getName();
+            } catch (IllegalStateException e) {
+                return true;
+            }
+            List<CoreBinding> bindings = new ArrayList<>();
+            while (link.hasNext()) {
+                bindings.add(link.getBinding());
+                link = link.getNext();
+            }
+            return bindings.stream().allMatch(x -> isType(x.getTypeExpr()));
+        }
+        return expr instanceof CoreReferenceExpression;
+    }
+
+
+    private HandledParameter handleProofParam(CoreParameter parameter) {
+        var type = parameter.getTypeExpr();
+        List<String> names = new ArrayList<>();
+        List<ConcreteExpression> sigmaParams = new ArrayList<>();
+        while (type instanceof CorePiExpression typePi) {
+            if (exprIsType(typePi.getParameters().getTypeExpr())) {
+                var param = typePi.getParameters();
+                while (param.hasNext()) {
+                    oldRefs.addValue(param.getBinding().makeReference());
+                    names.add(param.getBinding().getName());
+                    sigmaParams.add(newRefs.get(oldRefs.getIndex(param.getTypeExpr())));
+                    param = param.getNext();
+                }
+                type = typePi.getCodomain();
+            } else {
+                break;
+            }
+        }
+        ArendRef xRef = fac.local("_");
+        ConcreteExpression xType = (sigmaParams.size() == 0) ? fac.sigma() : (sigmaParams.size() == 1) ?
+                sigmaParams.get(0) : fac.sigma(sigmaParams.stream().map(x -> fac.param(List.of(fac.local("_")), x)).toList());
+        if (names.size() > 0) {
+            StringBuilder sigmaName = new StringBuilder();
+            for (var name : names) {
+                sigmaName.append((name.equals(names.get(names.size() - 1))) ? name : name + "_");
+            }
+            xRef = fac.local(sigmaName.toString());
+
+            if (names.size() > 1) {
+                for (int i = 0; i < names.size(); i++) {
+                    newRefs.add(fac.proj(fac.ref(xRef), i));
+                }
+            } else {
+                newRefs.add(fac.ref(xRef));
+            }
+        }
+        var substLam = SubstitutionMeta.makeLambda(type,
+                oldRefs.getValues().stream().map(CoreReferenceExpression::getBinding).collect(Collectors.toList()), fac, null);
+        var formB = fac.appBuilder(substLam);
+        for (var x : newRefs) {
+            formB = formB.app(fac.arg(x, true));
+        }
+        var form = formB.build();
+
+        for (int i = 0; i < names.size(); i++) {
+            oldRefs.getValues().remove(oldRefs.getValues().size() - 1);
+            newRefs.remove(newRefs.size() - 1);
+        }
+
+        var xParam = fac.param(List.of(xRef), xType);
+
+        var ref = fac.local(parameter.getBinding().getName());
+
+        ConcreteArgument arg = fac.arg(fac.ref(ref), true);
+
+        if (!(type instanceof CorePiExpression)) {
+            form = fac.pi(List.of(fac.param(true, List.of(fac.local("_")), fac.app(fac.ref(True.getRef())))),
+                    form);
+            arg = fac.arg(fac.app(fac.core(ev_true_lam.computeTyped()),
+                    arg), true);
+        }
+
+        var param = fac.param(List.of(ref), fac.pi(List.of(xParam), form));
+
+        if (sigmaParams.size() == 0) {
+            arg = fac.arg(fac.app(fac.core(ev_unit_lam.computeTyped()), arg), true);
+        } else if (sigmaParams.size() >= 2) {
+            var carrys = List.of(carry2_lam, carry3_lam, carry4_lam, carry5_lam, carry6_lam);
+            if (sigmaParams.size() - 2 >= carrys.size()) {
+                errorReporter.report(new TypecheckingError("Maximum number of arguments in proof parameter = " + (carrys.size() + 1), marker));
+            }
+            arg = fac.arg(fac.app(fac.core((carrys.get(sigmaParams.size() - 2).computeTyped())), arg), true);
+        }
+
+        return new HandledParameter(param, arg);
+    }
+
+    private void addLambdaParameters(CoreExpression lambda, List<ConcreteParameter> parameters, List<ConcreteArgument> arguments) {
+
+        List<String> names = new ArrayList<>();
+        List<ConcreteExpression> sigmaParams = new ArrayList<>();
+        while (lambda instanceof CoreLamExpression lam) {
+            if (exprIsType(lam.getParameters().getTypeExpr())) {
+                var param = lam.getParameters();
+                while (param.hasNext()) {
+                    names.add(param.getBinding().getName());
+                    sigmaParams.add(newRefs.get(oldRefs.getIndex(param.getTypeExpr())));
+                    param = param.getNext();
+                }
+                lambda = lam.getBody();
+            } else {
+                break;
+            }
+        }
+        ArendRef xRef = fac.local("_");
+        ConcreteExpression xType = (sigmaParams.size() == 0) ? fac.sigma() : (sigmaParams.size() == 1) ?
+                sigmaParams.get(0) : fac.sigma(sigmaParams.stream().map(x -> fac.param(List.of(fac.local("_")), x)).toList());
+
+        if (names.size() > 0) {
+            StringBuilder sigmaName = new StringBuilder();
+            for (var name : names) {
+                sigmaName.append((name.equals(names.get(names.size() - 1))) ? name : name + "_");
+            }
+            xRef = fac.local(sigmaName.toString());
+
+            if (names.size() > 1) {
+                for (int i = 0; i < names.size(); i++) {
+                    arguments.add(fac.arg(fac.proj(fac.ref(xRef), i), true));
+                }
+            } else {
+                arguments.add(fac.arg(fac.ref(xRef), true));
+            }
+        }
+
+        parameters.add(fac.param(List.of(xRef), xType));
+
+        if (!(lambda instanceof CoreLamExpression)) {
+            parameters.add(fac.param(true, List.of(fac.local("_")), fac.app(fac.ref(True.getRef()))));
+        }
+    }
+
+
 
     public CoreExpression canonizeParameters(CoreExpression expr, int proofStart, boolean handleProofParams) {
         var cur = expr;
@@ -281,24 +425,7 @@ public class Canonizer {
         assert !handleProofParams || proofStart == 0;
 
         if (handleProofParams) {
-            if (cur instanceof CoreLamExpression curLam) {
-                var parType = curLam.getParameters().getTypeExpr();
-                if (exprIsType(parType)) {
-                    var body = curLam.getBody();
-                    if (!(body instanceof CoreLamExpression bodyLam) || exprIsType(bodyLam.getParameters().getTypeExpr())) {
-                        // TODO add multiples variables as ctx
-                        var ref = fac.local(curLam.getParameters().getBinding().getName());
-                        parameters.add(fac.param(List.of(ref), fac.ref(newRefs.get(oldRefs.getIndex(curLam.getParameters().getTypeExpr())))));
-                        parameters.add(fac.param(List.of(fac.local("p_of_true_as_sequence_hypothesis")), fac.ref(True.getRef())));
-                        arguments.add(fac.arg(fac.ref(ref), true));
-                    }
-                } else {
-                    parameters.add(fac.param(List.of(fac.local("x_of_sigma_domain")), fac.sigma()));
-                }
-            } else {
-                parameters.add(fac.param(List.of(fac.local("x_of_sigma_domain")), fac.sigma()));
-                parameters.add(fac.param(List.of(fac.local("p_of_true_as_sequence_hypothesis")), fac.ref(True.getRef())));
-            }
+            addLambdaParameters(cur, parameters, arguments);
         }
 
         var res = fac.lam(parameters, fac.app(fac.core(expr.computeTyped()), arguments));
@@ -310,106 +437,6 @@ public class Canonizer {
         return resCore.getExpression().normalize(NormalizationMode.WHNF);
     }
 
-
-    private boolean exprIsType(CoreExpression expr) {
-        if (expr instanceof CoreSigmaExpression) {
-            var link = ((CoreSigmaExpression) expr).getParameters();
-            try {
-                link.getBinding().getName();
-            } catch (IllegalStateException e) {
-                return true;
-            }
-            List<CoreBinding> bindings = new ArrayList<>();
-            while (link.hasNext()) {
-                bindings.add(link.getBinding());
-                link = link.getNext();
-            }
-            return bindings.stream().allMatch(x -> isType(x.getTypeExpr()));
-        }
-        return expr instanceof CoreReferenceExpression;
-    }
-
-
-    private HandledParameter handleProofParam(CoreParameter parameter) {
-        var type = parameter.getTypeExpr();
-        var ref = fac.local(parameter.getBinding().getName());
-        ConcreteParameter param;
-        ConcreteArgument arg;
-        if (type instanceof CorePiExpression typePi) {
-            var typeParam = typePi.getParameters().getTypeExpr();
-            var cod = typePi.getCodomain();
-            if (exprIsType(typeParam)) {
-                if (cod instanceof CorePiExpression codPi && !exprIsType(codPi.getParameters().getTypeExpr())) {
-                    // TODO add multiple parameters as ctx
-                    var xRef = fac.local(typePi.getParameters().getBinding().getName());
-                    oldRefs.addValue(typePi.getParameters().getBinding().makeReference());
-                    newRefs.add(xRef);
-                    var substLam = SubstitutionMeta.makeLambda(typePi.getCodomain(),
-                            oldRefs.getValues().stream().map(CoreReferenceExpression::getBinding).collect(Collectors.toList()), fac, null);
-                    var formB = fac.appBuilder(substLam);
-                    for (var x : newRefs) {
-                        formB = formB.app(fac.arg(fac.ref(x), true));
-                    }
-                    var form = formB.build();
-                    oldRefs.getValues().remove(oldRefs.getValues().size() - 1);
-                    newRefs.remove(newRefs.size() - 1);
-                    param = fac.param(List.of(ref),
-                            fac.pi(List.of(fac.param(true, List.of(xRef), fac.ref(newRefs.get(oldRefs.getIndex(typeParam))))),
-                                    form));
-                    arg = fac.arg(fac.ref(ref), true);
-
-                } else {
-                    var xRef = fac.local(typePi.getParameters().getBinding().getName());
-                    oldRefs.addValue(typePi.getParameters().getBinding().makeReference());
-                    newRefs.add(xRef);
-                    var substLam = SubstitutionMeta.makeLambda(typePi.getCodomain(),
-                            oldRefs.getValues().stream().map(CoreReferenceExpression::getBinding).collect(Collectors.toList()), fac, null);
-                    var formB = fac.appBuilder(substLam);
-                    for (var x : newRefs) {
-                        formB = formB.app(fac.arg(fac.ref(x), true));
-                    }
-                    var form = formB.build();
-                    oldRefs.getValues().remove(oldRefs.getValues().size() - 1);
-                    newRefs.remove(newRefs.size() - 1);
-                    param = fac.param(List.of(ref),
-                            fac.pi(List.of(fac.param(true, List.of(xRef), fac.ref(newRefs.get(oldRefs.getIndex(typeParam))))),
-                                    fac.pi(List.of(fac.param(true, List.of(fac.local("_")), fac.app(fac.ref(True.getRef())))),
-                                            form)));
-                    arg = fac.arg(fac.app(fac.core(ev_true_lam.computeTyped()),
-                            fac.arg(fac.ref(ref), true)), true);
-                }
-            } else {
-                var substLam = SubstitutionMeta.makeLambda(type,
-                        oldRefs.getValues().stream().map(CoreReferenceExpression::getBinding).collect(Collectors.toList()), fac, null);
-                var formB = fac.appBuilder(substLam);
-                for (var x : newRefs) {
-                    formB = formB.app(fac.arg(fac.ref(x), true));
-                }
-                var form = formB.build();
-                param = fac.param(List.of(ref),
-                        fac.pi(List.of(fac.param(true, List.of(fac.local("_")), fac.sigma())),
-                                form));
-                arg = fac.arg(fac.app(fac.core(ev_unit_lam.computeTyped()),
-                        fac.arg(fac.ref(ref), true)), true);
-            }
-        } else {
-            var substLam = SubstitutionMeta.makeLambda(type,
-                    oldRefs.getValues().stream().map(CoreReferenceExpression::getBinding).collect(Collectors.toList()), fac, null);
-            var formB = fac.appBuilder(substLam);
-            for (var x : newRefs) {
-                formB = formB.app(fac.arg(fac.ref(x), true));
-            }
-            var form = formB.build();
-            param = fac.param(List.of(ref),
-                    fac.pi(List.of(fac.param(true, List.of(fac.local("_")), fac.sigma()),
-                                    fac.param(true, List.of(fac.local("_")), fac.app(fac.ref(True.getRef())))),
-                            form));
-            arg = fac.arg(fac.app(fac.core(ev_unit_lam.computeTyped()),
-                    fac.arg(fac.app(fac.core(ev_true_lam.computeTyped()),
-                            fac.arg(fac.ref(ref), true)), true)), true);
-        }
-        return new HandledParameter(param, arg);
-    }
 
 
     public CoreExpression canonize(CoreExpression expr, int proofStart) {

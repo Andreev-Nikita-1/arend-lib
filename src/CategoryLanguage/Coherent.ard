@@ -26,7 +26,6 @@
   | bcoprod (A B : Ob) : Bcoprod A B
 }
 
-
 \class CoherentPrecat \extends RegularPrecat {
   | subobj-cat-with-coproducts (A : Precat.Ob) : \let SubCat => subobj-cat A \in PrecatWithFiniteCoproducts {
     | Ob => Precat.Ob {SubCat}
@@ -39,7 +38,11 @@
   }
 
   | bcoprod-stability {A B : Precat.Ob} {f : Hom A B} {so so' : subobj-cat B} {so1 so1' : subobj-cat A}
-                      (pb : Pullback so.2 f so1.1 {| pbProj2 => so1.2}) (pb' : Pullback so'.2 f so1'.1 {| pbProj2 => so1'.2})
+                      (pb : Pullback so.2 f so1.1 {
+                        | pbProj2 => so1.2
+                      }) (pb' : Pullback so'.2 f so1'.1 {
+      | pbProj2 => so1'.2
+    })
   : Pullback (Bcoprod.apex {PrecatWithFiniteCoproducts.bcoprod {subobj-cat-with-coproducts B} so so'}).2 f {
     | apex => (Bcoprod.apex {PrecatWithFiniteCoproducts.bcoprod {subobj-cat-with-coproducts A} so1 so1'}).1
     | pbProj2 => (Bcoprod.apex {PrecatWithFiniteCoproducts.bcoprod {subobj-cat-with-coproducts A} so1 so1'}).2
@@ -239,11 +242,13 @@
   | substProof {dom' : Type TP} {term : Term P dom dom'} {hyp' f' : Formula P FP dom'}
                (hyp = substF hyp' term) (f = substF f' term) (Proof PP hyp' f')
   | reflProof {cod : Type TP} {a : Term P dom cod} (f = Eq a a)
-  | transportProof {dom' : Type TP} {a a' : Term P dom dom'} {f' : Formula P FP (Prod dom dom')}
-                   (f = substF f' (Tuple idp (Var idp) a')) (Proof PP hyp (Eq a a')) (Proof PP hyp (substF f' (Tuple idp (Var idp) a)))
+  | transportProof {dom' : Type TP} {a a' : Term P dom dom'} {f' : Formula P FP (Prod dom' dom)}
+                   (f = substF f' (Tuple idp a' (Var idp))) (Proof PP hyp (Eq a a'))
+                   (Proof PP hyp (substF f'  (Tuple idp a (Var idp))))
+  | pmapProof {mid cod : Type TP} {a b : Term P dom mid} (h : Term P (Prod mid dom) cod)
+              (f = Eq (subst h (Tuple idp a (Var idp))) (subst h (Tuple idp b (Var idp))))
+              (Proof PP hyp (Eq a b))
   | concatProof {cod : Type TP} (a b c : Term P dom cod) (f = Eq a c) (Proof PP hyp (Eq a b)) (Proof PP hyp (Eq b c))
-  | pmapProof {mid cod : Type TP} {a b : Term P dom mid} (h : Term P (Prod dom mid) cod)
-              (f = Eq (subst h (Tuple idp (Var idp) a)) (subst h (Tuple idp (Var idp) b))) (Proof PP hyp (Eq a b))
   | invProof {cod : Type TP} {a b : Term P dom cod} (f = Eq a b) (Proof PP hyp (Eq b a))
   | proj1Proof {f2 : Formula P FP dom} (hyp = Conj f f2)
   | proj2Proof {f1 : Formula P FP dom} (hyp = Conj f1 f)
@@ -266,34 +271,35 @@
 
 \func absurdProof' {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
                    {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
-                   {hyp : Formula TP FP dom} (f : Formula TP FP dom) (p : Proof PP hyp FFalse) : Proof PP hyp f => transProof p (absurdProof idp)
-
+                   {hyp : Formula TP FP dom} (f : Formula TP FP dom) (p : Proof PP hyp FFalse) : Proof PP hyp f =>
+  transProof p (absurdProof idp)
 
 \func proj1Proof' {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
                   {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
-                  {hyp f f' : Formula TP FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f => transProof p (proj1Proof idp)
+                  {hyp f f' : Formula TP FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f =>
+  transProof p (proj1Proof idp)
 
 \func proj2Proof' {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
                   {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
-                  {hyp f f' : Formula TP FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f' => transProof p (proj2Proof idp)
-
+                  {hyp f f' : Formula TP FP dom} (p : Proof PP hyp (Conj f f')) : Proof PP hyp f' =>
+  transProof p (proj2Proof idp)
 
 \func proofParam {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom0 dom : Type SP} {FP : Type SP -> \Set}
                  {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set} {hyp0 : Formula TP FP dom0}
                  (hyp f : Formula TP FP dom)
-                 (n : PP dom hyp f) (t : Term TP dom0 dom) (p : Proof PP hyp0 (substF hyp t)) : Proof PP hyp0 (substF f t)
-  => transProof p (substProof idp idp (paramProof n))
+                 (n : PP dom hyp f) (t : Term TP dom0 dom) (p : Proof PP hyp0 (substF hyp t)) : Proof PP hyp0 (substF f t) =>
+  transProof p (substProof idp idp (paramProof n))
 
 \func conjSymLemma {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom : Type SP} {FP : Type SP -> \Set}
                    {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
                    (f g : Formula TP FP dom) : Proof PP (Conj f g) (Conj g f) =>
   tupleProof idp (proj2Proof idp) (proj1Proof idp)
 
-
 \func existsLemma {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom dom' : Type SP} {FP : Type SP -> \Set}
                   {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
                   (f : Formula TP FP (Prod dom' dom)) (g : Formula TP FP dom)
-  : Proof PP (Conj (FExists f) g) (FExists (Conj f (substF g (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))) => existsProofExtra idp idp
+  : Proof PP (Conj (FExists f) g) (FExists (Conj f (substF g (Proj2 {_}{_}{_}{_}{dom'} (Var idp))))) =>
+  existsProofExtra idp idp
 
 \func recExistsProof {SP : \Set} {TP : Type SP -> Type SP -> \Set} {dom dom' : Type SP} {FP : Type SP -> \Set}
                      {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set} {hyp : Formula TP FP dom}
@@ -309,7 +315,6 @@
                       (f' : Formula TP FP (Prod dom' dom)) (t : Term TP dom dom')
                       (p : Proof PP hyp (substF f' (Tuple idp t (Var idp)))) : Proof PP hyp (FExists f') =>
   transProof p (existsProofSubst idp idp)
-
 
 \func inlProof {SP : \Set} {TP : Type SP -> Type SP -> \Set} {FP : Type SP -> \Set}
                {PP : \Pi(dom : Type SP) -> Formula TP FP dom -> Formula TP FP dom -> \Set}
@@ -356,25 +361,18 @@
     \in in'')
   | reflProof {cod} {a} p => rewrite p (inclusion-to-equalizer-lemma' idp)
   | transportProof {dom'} {a} {a'} {f'} p eqProof proof => rewrite p (
-    \let Ia => I TyF TeF (Tuple idp (Var idp) a)
-         | Ia' => I TyF TeF (Tuple idp (Var idp) a')
-         | pb1 => C.pullback (IF TyF TeF FF f').2 Ia
-         | pb2 => C.pullback (IF TyF TeF FF f').2 Ia'
-         | si1 => IP TyF TeF FF PF proof
-         | Ia=Ia' => pmap (C.pair (id _ `o` (IF TyF TeF FF hyp).2) __) (inclusion-to-equalizer-lemma (IP TyF TeF FF PF eqProof))
-         | (_, hypIn, _) => IF TyF TeF FF hyp
-         | (x, x') => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp (Var idp) a)
-         | (y, y') => lemma-substF-subobjects {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp (Var idp) a')
-         | (in1, p1) => subobj-inclusion-transitivity _ x x' si1 (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp (Var idp) a)).1
-         | in2 => Pullback.pbMap {pb2} (Pullback.pbProj1 {pb1} `o` in1) hypIn (inv o-assoc *> rewrite (Pullback.pbCoh {pb1}) (o-assoc *> rewrite p1 (C.pair-comp *> Ia=Ia' *> inv C.pair-comp)))
-         | p2 => Pullback.pbBeta2 {pb2} {_} {Pullback.pbProj1 {pb1} `o` in1} {hypIn} {inv o-assoc *> rewrite (Pullback.pbCoh {pb1}) (o-assoc *> rewrite p1 (C.pair-comp *> Ia=Ia' *> inv C.pair-comp))}
-    \in subobj-inclusion-transitivity _ y' y (in2, p2) (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp (Var idp) a')).2)
+    \let si1 => IP TyF TeF FF PF proof
+         | Ia=Ia' => pmap (C.pair __ (id _ `o` (IF TyF TeF FF hyp).2)) (inclusion-to-equalizer-lemma (IP TyF TeF FF PF eqProof))
+         | pb-a => inclusions-to-pullback-def (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp a (Var idp)))
+         | pb-a' => inclusions-to-pullback-def (lemma-substF {C} {TP} {P} {TyF} {TeF} {FP} {FF} f' (Tuple idp a' (Var idp)))
+    \in (Pullback.pbMap {pb-a'} ((Pullback.pbProj1 {pb-a}) `o` si1.1) (IF TyF TeF FF hyp).2 (inv o-assoc
+      *> rewrite (C.pair-comp, inv Ia=Ia', inv C.pair-comp, inv si1.2) (pmap (`o` si1.1) (Pullback.pbCoh {pb-a}) *> o-assoc)), Pullback.pbBeta2))
   | concatProof {cod} a b c p proof1 proof2 => rewrite p (
     \let q => inclusion-to-equalizer-lemma (IP TyF TeF FF PF proof1)
          | q' => inclusion-to-equalizer-lemma (IP TyF TeF FF PF proof2)
     \in inclusion-to-equalizer-lemma' (q *> q'))
-  | pmapProof {mid} {cod} {a} {b} h p proof => rewrite (p, inv (lemma-subst h (Tuple idp (Var idp) a)), inv (lemma-subst h (Tuple idp (Var idp) b)))(
-    \let q => pmap (\lam xx => I TyF TeF h `o` C.pair (id _ `o` (IF TyF TeF FF hyp).2) xx) (inclusion-to-equalizer-lemma (IP TyF TeF FF PF proof))
+  | pmapProof {mid} {cod} {a} {b} h p proof => rewrite (p, inv (lemma-subst h (Tuple idp a (Var idp))), inv (lemma-subst h (Tuple idp b (Var idp))))(
+    \let q => pmap (\lam xx => I TyF TeF h `o` C.pair xx (id _ `o` (IF TyF TeF FF hyp).2)) (inclusion-to-equalizer-lemma (IP TyF TeF FF PF proof))
     \in inclusion-to-equalizer-lemma' (o-assoc *>  (pmap (I TyF TeF h `o`) C.pair-comp *> q *> pmap (I TyF TeF h `o`) (inv C.pair-comp))  *> inv o-assoc))
   | invProof p proof => rewrite p (
     \let q => inclusion-to-equalizer-lemma (IP TyF TeF FF PF proof)
@@ -403,7 +401,7 @@
          | pb => C.pullback If.2 Iproj2
          | img => C.image (C.proj2 `o` Ih'.2)
          | x => Image.map {img} If.2 If.3 (Pullback.pbProj1 {pb} `o` in1.1 `o` in3.1) (inv o-assoc *> rewriteI (o-assoc, inv (Pullback.pbCoh {pb}))
-                                                                                                                 (o-assoc *> o-assoc *> o-assoc *> pmap (C.proj2 `o`) (id-left *> inv o-assoc *> pmap (`o` in3.1) in1.2 *> in3.2)))
+                                                                                                          (o-assoc *> o-assoc *> o-assoc *> pmap (C.proj2 `o`) (id-left *> inv o-assoc *> pmap (`o` in3.1) in1.2 *> in3.2)))
     \in x)
   | existsProofSubst {dom'} {t} {f'} p p1 => rewrite (p, p1) (
     \let
@@ -414,7 +412,7 @@
       | pb => C.pullback If'.2 Itpl
       | img => C.image (C.proj2 `o` If'.2)
     \in subobj-inclusion-transitivity x1 x2 (IF TyF TeF FF (FExists f')) in1 (Image.im2 {img} `o` Pullback.pbProj1 {pb},
-                                                                             inv o-assoc *> rewrite (Image.im-comm {img}) (o-assoc *> rewrite (Pullback.pbCoh {pb}) (inv o-assoc *> rewrite C.beta2 id-left))))
+                                                                              inv o-assoc *> rewrite (Image.im-comm {img}) (o-assoc *> rewrite (Pullback.pbCoh {pb}) (inv o-assoc *> rewrite C.beta2 id-left))))
   | disjLeft p => rewrite p (Bcoprod.inl {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _})
   | disjRight p => rewrite p (Bcoprod.inr {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _})
   | disjHyp p proof1 proof2 => rewrite p (Bcoprod.map {PrecatWithFiniteCoproducts.bcoprod {C.subobj-cat-with-coproducts _} _ _} (IP TyF TeF FF PF proof1) (IP TyF TeF FF PF proof2))

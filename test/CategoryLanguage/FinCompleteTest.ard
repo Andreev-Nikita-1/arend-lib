@@ -1,17 +1,18 @@
 \import Category.Meta
+\import Function.Meta
 \import Paths
 
-\func test-e=e' => \let q =>
-  category_lang_meta (\lam
+\func test-e=e' =>
+  \let q => category_lang_meta "regular" $ \lam
   (A : \Set)
   (star : A -> A -> A)
   (e e' : A)
   (h1 : \Pi(x : A) -> star x e = x)
   (h2 : \Pi(x : A) -> star e' x = x)
-  => inv (h1 e') *> h2 e) \in 0
+  => \lam (x x' : A) => inv (h1 e') *> h2 e \in 0
 
 \func test-inv=inv' => \let q =>
-  category_lang_meta (\lam
+  category_lang_meta "regular" (\lam
   (A : \Set)
   (star : A -> A -> A)
   (e : A)
@@ -26,14 +27,15 @@
         *> pmap (\lam (x' : A) => star (il x) x') (inv (irh x))
              *> inv (assh (il x) x (ir x)) *> pmap (\lam (x' : A) => star x' (ir x)) (ilh x) *> erh (ir x)) \in 0
 
-\func test-transport => \let q =>
-  category_lang_meta (\lam
+\func test-transport =>
+  \let q => category_lang_meta "regular" $ \lam
   (A B : \Set)
   (s s' : A -> B)
   (f : B -> \Prop)
   (h : \Pi(x : A) -> f (s x))
   (eq : \Pi(x : A) -> s x = s' x)
-  => \lam (x : A) => transport (\lam t => f t) (eq x) (h x)) \in 0
+  => \lam (x : A)
+      => transport (\lam t => f t) (eq x) (h x) \in {?}
 
 \func test-transport-1 => \let q =>
   category_lang_meta (\lam
@@ -42,10 +44,10 @@
   (g : B -> C)
   (f : B -> \Prop)
   (f' : C -> \Prop)
-  (h : \Pi(x : A) -> f (s x))
+  (h : \Pi(x x' x'' x''' y' y'' : A) -> f (s x))
   (h' : \Pi(y : B) -> f' (g y))
   (eq : \Pi(x : A) -> s x = s' x)
-  => \lam (x : A) => transport (\lam (t : B) => \Sigma (f t) (f' (g t))) (eq x) (h x, h' (s x))) \in 0
+  => \lam (x : A) => transport (\lam (t : B) => \Sigma (f t) (f' (g t))) (eq x) (h x x x x x x, h' (s x))) \in 0
 
 \func test-subst => 0 \where {
   \func test-1 => \let q =>
